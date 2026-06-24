@@ -1,16 +1,18 @@
 package com.pay.payment_system.configservice;
 
 import com.pay.payment_system.entity.UserAccount;
-import com.pay.payment_system.entity.UserSecurity;
 import com.pay.payment_system.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.CacheManager;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -21,99 +23,140 @@ public class MfaProcessingService {
     private final IpService ipService;
     private final MfaSecurityContextService mfaSecurityContextService;
     private final UserSecurityService userSecurityService;
+    private final CacheManager cacheManager;
+    private final StringRedisTemplate redisTemplate;
 
     @Transactional
     public String processMfaValidation(String code, Authentication auth, HttpServletRequest request, HttpServletResponse response) {
-        if (auth == null) {
-            log.warn("MFA ATTEMPT: Unauthorized access try to validation endpoint.");
-            return "REDIRECT_LOGIN";
-        }
+        if (auth == null) return "REDIRECT_LOGIN";
 
         String username = auth.getName();
-        String sanitizedCode = (code != null) ? code.trim() : "";
+        String cleanEmail = username.trim().toLowerCase();
+        String lockKey = "login:lock:" + cleanEmail;
+        String attemptsKey = "otp:attempts:" + cleanEmail;
+
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey))) {
+            Long expireSeconds = redisTemplate.getExpire(lockKey, TimeUnit.SECONDS);
+            long remaining = (expireSeconds != null && expireSeconds > 0) ? expireSeconds : 900;
+            return "REDIRECT_BLOCKED_" + remaining;
+        }
+
         UserAccount userAccount = userRepository.findByEmail(username);
+        if (userAccount == null || userAccount.getSecurity() == null) return "REDIRECT_LOGIN";
 
-        if (userAccount == null) {
-            log.error("MFA CRITICAL: Context authentication name '{}' not found in database.", username);
-            return "REDIRECT_LOGIN";
-        }
-
-        UserSecurity security = userAccount.getSecurity();
-        if (security == null) {
-            log.error("MFA SECURITY ERROR: Security entity not found for user '{}'", username);
-            return "REDIRECT_LOGIN";
-        }
-
-        if (security.otpLimitReached() || security.isBlocked()) {
-            log.warn("MFA BLOCKED: User {} attempted verification but is already locked.", username);
-            ipService.registerAccessAttempt(username, "FAIL", "User blocked due to maximum OTP attempts reached", request);
-
-            HttpSession currentSession = request.getSession(false);
-            if (currentSession != null) {
-                currentSession.invalidate();
-            }
-            return "REDIRECT_BLOCKED";
+        if (userAccount.getSecurity().isBlocked()) {
+            return "REDIRECT_BLOCKED_900";
         }
 
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("OTP_CRYPTO_TOKEN") == null) {
-            log.warn("MFA ATTEMPT: No cryptographic OTP token found in session for user {}.", username);
-            return "REDIRECT_LOGIN";
+            log.warn("MFA SUSPICIOUS: Attempt with missing or expired session token for user: {}", cleanEmail);
+            return triggerLockoutIncrement(cleanEmail, session, "STATUS_EXPIRED");
         }
+
         String cryptoToken = (String) session.getAttribute("OTP_CRYPTO_TOKEN");
+        String sanitizedCode = (code != null) ? code.trim() : "";
 
         boolean isOtpValid = false;
         try {
             isOtpValid = userSecurityService.validateOtp(userAccount, sanitizedCode, cryptoToken);
         } catch (RuntimeException e) {
-            log.error("MFA VALIDATION EXCEPTION for user " + username, e);
 
             if (e.getMessage() != null && e.getMessage().contains("MFA_EXPIRED")) {
-                session.removeAttribute("OTP_CRYPTO_TOKEN");
-                ipService.registerAccessAttempt(username, "FAIL", "Expired OTP token challenge", request);
-                return "REDIRECT_LOGIN";
+                log.warn("MFA EXPIRED ATTEMPT: User entered a structurally timed-out OTP code.");
+                return triggerLockoutIncrement(cleanEmail, session, "STATUS_EXPIRED");
             }
-
-            if (security.otpLimitReached() || security.isBlocked()) {
-                if (session != null) session.invalidate();
-                return "REDIRECT_BLOCKED";
-            }
-
             return "REDIRECT_LOGIN";
         }
 
         if (isOtpValid) {
             session.removeAttribute("OTP_CRYPTO_TOKEN");
-            security.setOtpFailedAttempts(0);
-            userRepository.save(userAccount);
-
+            redisTemplate.delete(attemptsKey);
+            if (cacheManager.getCache("users_security") != null) {
+                cacheManager.getCache("users_security").evict(username);
+            }
             ipService.registerAccessAttempt(username, "SUCCESSFUL", null, request);
-            log.info("MFA CHALLENGE PASSED: User {} successfully authenticated.", username);
-
             mfaSecurityContextService.upgradeToFullAuthentication(auth, userAccount, request, response);
             return "REDIRECT_INDEX";
-        } else {
+        }
 
-            security.increaseOtpAttempts();
-            int currentAttempts = security.getOtpFailedAttempts();
+        else {
+            log.warn("MFA WRONG CODE: Input code does not match the generated token.");
+            return triggerLockoutIncrement(cleanEmail, session, "REDIRECT_REMAINING_");
+        }
+    }
 
-            userRepository.save(userAccount);
+    private String triggerLockoutIncrement(String cleanEmail, HttpSession session, String baseStatus) {
+        String attemptsKey = "otp:attempts:" + cleanEmail;
+        String lockKey = "login:lock:" + cleanEmail;
 
-            String reason = "Incorrect OTP code. Attempt #" + currentAttempts;
-            ipService.registerAccessAttempt(username, "FAIL", reason, request);
+        Long currentAttempts = redisTemplate.opsForValue().increment(attemptsKey);
+        if (currentAttempts != null && currentAttempts == 1) {
+            redisTemplate.expire(attemptsKey, 60, TimeUnit.MINUTES);
+        }
 
-            log.warn("MFA CHALLENGE FAILED: Invalid OTP code provided by user {}. Attempt {}/3", username, currentAttempts);
+        if (currentAttempts != null && currentAttempts >= 3) {
 
-            if (security.isBlocked() || security.otpLimitReached()) {
-                if (session != null) session.invalidate();
-                log.error("MFA LOCKOUT: User {} has been dynamically locked out due to failed OTP attempts.", username);
-                return "REDIRECT_BLOCKED";
+            long lockDurationMinutes = (currentAttempts == 3) ? 15 : (currentAttempts == 4) ? 60 : 1440;
+            long lockDurationSeconds = lockDurationMinutes * 60;
+
+            redisTemplate.opsForValue().set(lockKey, "LOCKED", lockDurationMinutes, TimeUnit.MINUTES);
+
+            if (cacheManager.getCache("users_security") != null) {
+                cacheManager.getCache("users_security").evict(cleanEmail);
             }
 
-            int remainingAttempts = 3 - currentAttempts;
-            if (remainingAttempts < 0) remainingAttempts = 0;
+            if (session != null) {
+                session.removeAttribute("OTP_CRYPTO_TOKEN");
+            }
 
-            return "REDIRECT_REMAINING_" + remainingAttempts;
+            log.error("MFA SECURITY ESCALATION: Lockout level [{}] activated for {}. Blocked for {} minutes.",
+                    currentAttempts, cleanEmail, lockDurationMinutes);
+
+            return "REDIRECT_BLOCKED_" + lockDurationSeconds;
         }
+
+        if (baseStatus.equals("STATUS_EXPIRED")) {
+            if (session != null) session.removeAttribute("OTP_CRYPTO_TOKEN");
+            return "STATUS_EXPIRED";
+        }
+
+        long remainingAttempts = 3 - currentAttempts;
+        return "REDIRECT_REMAINING_" + (remainingAttempts < 0 ? 0 : remainingAttempts);
+    }
+
+    @Transactional
+    public String processMfaResend(Authentication auth, HttpServletRequest request, HttpServletResponse response) {
+        if (auth == null) return "RESEND_UNAUTHORIZED";
+
+        String username = auth.getName();
+        String cleanEmail = username.trim().toLowerCase();
+        String lockKey = "login:lock:" + cleanEmail;
+        String attemptsKey = "otp:attempts:" + cleanEmail;
+
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey))) {
+            return "RESEND_BLOCKED";
+        }
+
+        HttpSession session = request.getSession(false);
+
+        Long currentAttempts = redisTemplate.opsForValue().increment(attemptsKey);
+        if (currentAttempts != null && currentAttempts == 1) {
+            redisTemplate.expire(attemptsKey, 60, TimeUnit.MINUTES);
+        }
+
+        if (currentAttempts != null && currentAttempts >= 3) {
+            log.warn("MFA RESEND FLOODING: User {} blocked due to consecutive code requests.", cleanEmail);
+            return triggerLockoutIncrement(cleanEmail, session, "REDIRECT_BLOCKED_");
+        }
+
+        UserAccount userAccount = userRepository.findByEmail(username);
+        if (userAccount == null || session == null) return "RESEND_UNAUTHORIZED";
+
+        String newCryptoToken = userSecurityService.generateAndSendOtp(userAccount.getId(), userAccount.getEmail());
+        if (newCryptoToken == null) return "RESEND_UNAUTHORIZED";
+
+        session.setAttribute("OTP_CRYPTO_TOKEN", newCryptoToken);
+        return "RESEND_SUCCESS";
     }
 }

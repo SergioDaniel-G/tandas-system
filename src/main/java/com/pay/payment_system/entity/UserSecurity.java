@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 public class UserSecurity implements Serializable {
 
     private static final int MAX_LOGIN_ATTEMPTS = 5;
-    private static final int MAX_OTP_ATTEMPTS = 3;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -46,9 +45,6 @@ public class UserSecurity implements Serializable {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
 
-    @Column(name = "otp_failed_attempts")
-    private int otpFailedAttempts = 0;
-
     @Column(name = "reset_token", length = 100)
     private String resetToken;
 
@@ -61,15 +57,7 @@ public class UserSecurity implements Serializable {
 
     public void resetFailedAttempts() {
         this.failedAttempts = 0;
-        this.otpFailedAttempts = 0;
         this.lockoutDate = null;
-    }
-
-    public void increaseOtpAttempts() {
-        otpFailedAttempts++;
-        if (otpFailedAttempts >= MAX_OTP_ATTEMPTS) {
-            lockAccount();
-        }
     }
 
     public void lockAccount() {
@@ -80,16 +68,11 @@ public class UserSecurity implements Serializable {
     public void unlockAccount() {
         this.accountNonLocked = true;
         this.failedAttempts = 0;
-        this.otpFailedAttempts = 0;
         this.lockoutDate = null;
     }
 
     public boolean isBlocked() {
         return !accountNonLocked;
-    }
-
-    public boolean otpLimitReached() {
-        return otpFailedAttempts >= MAX_OTP_ATTEMPTS;
     }
 
     public void updateLastLogin() {

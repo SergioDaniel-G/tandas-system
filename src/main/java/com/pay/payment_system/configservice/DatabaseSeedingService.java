@@ -47,7 +47,6 @@ public class DatabaseSeedingService {
                     .user(admin)
                     .accountNonLocked(true)
                     .failedAttempts(0)
-                    .otpFailedAttempts(0)
                     .build();
 
             admin.setSecurity(security);

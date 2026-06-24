@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -26,6 +27,7 @@ public class AdaptiveAuthService {
     private final IpService ipService;
     private final MfaEmailService mfaEmailService;
     private final UserSecurityService userSecurityService;
+    private final StringRedisTemplate redisTemplate;
 
     private final HttpSessionSecurityContextRepository securityContextRepository =
             new HttpSessionSecurityContextRepository();
@@ -38,20 +40,22 @@ public class AdaptiveAuthService {
                                        UserSecurity security) {
 
         String email = authentication.getName();
-        String ip = request.getRemoteAddr();
+        String cleanEmail = email.trim().toLowerCase();
 
+        String lockKey = "login:lock:" + cleanEmail;
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey))) {
+            log.warn("ADAPTIVE LOGIN BLOCKED: User {} tried to login, but has an active progressive RAM lock.", email);
+            return "REDIRECT_BLOCKED";
+        }
+
+        String ip = request.getRemoteAddr();
         boolean isKnownDevice = ipService.isIpKnown(email, ip);
 
-        /*
-         * KNOWN DISPOSITIVE → AVOID MFA (BYPASS)
-         */
         if (isKnownDevice) {
-
             log.info("ADAPTIVE AUTH: KNOWN IP DETECTED ({}) FOR USER {}. BYPASSING MFA.", ip, email);
 
             security.updateLastLogin();
             security.resetFailedAttempts();
-            security.setOtpFailedAttempts(0);
 
             var realAuthorities = userAccount.getRoles().stream()
                     .map(role -> new SimpleGrantedAuthority(role.getName()))
@@ -69,19 +73,11 @@ public class AdaptiveAuthService {
 
             securityContextRepository.saveContext(context, request, response);
 
-            ipService.registerAccessAttempt(
-                    email,
-                    "SUCCESSFUL",
-                    "Automatic access via known IP",
-                    request
-            );
-
+            ipService.registerAccessAttempt(email, "SUCCESSFUL", "Automatic access via known IP", request);
             return "KNOWN_DEVICE";
 
         } else {
-            /*
-             * UNKNOWN DISPOSITIVE → REQUIRE MFA
-             */
+
             log.warn("ADAPTIVE AUTH: UNKNOWN OR NEW IP DETECTED ({}) FOR USER {}. INITIATING MFA CHALLENGE.", ip, email);
 
             ipService.registerAccessAttempt(email, "INITIAL_LOGIN", "Step 1: Correct credentials", request);

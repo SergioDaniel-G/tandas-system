@@ -63,17 +63,13 @@ public class UserSecurityService {
         int codeInt = 100000 + secureRandom.nextInt(900000);
         String otp = String.valueOf(codeInt);
 
-        long expiryTime = Instant.now().toEpochMilli() + (8 * 60 * 1000);
+        long expiryTime = Instant.now().toEpochMilli() + (2 * 60 * 1000);
 
         mfaEmailService.sendOtpEmailAsync(email, otp);
 
         String hash = generateHash(userId, otp, expiryTime);
         return hash + "." + expiryTime;
     }
-
-    /**
-     * VALIDATES THE OTP MATHEMATICALLY AND PROTECTS AGAINST BRUTE FORCE
-     */
 
     @Transactional
     public boolean validateOtp(UserAccount userAccount, String inputOtp, String cryptoToken) {
@@ -90,12 +86,6 @@ public class UserSecurityService {
                 throw new RuntimeException("MFA_EXPIRED: The OTP code has expired.");
             }
 
-            UserSecurity security = userAccount.getSecurity();
-            if (security.getOtpFailedAttempts() >= 3) {
-                log.warn("MFA BRUTE FORCE BLOCK: Maximum OTP attempts exceeded for user: {}", userAccount.getEmail());
-                throw new RuntimeException("MFA_BLOCKED: Maximum attempts exceeded. Please login again.");
-            }
-
             String serverHash = generateHash(userAccount.getId(), inputOtp, expiryTime);
 
             boolean isHashValid = MessageDigest.isEqual(
@@ -104,19 +94,15 @@ public class UserSecurityService {
             );
 
             if (isHashValid) {
-                security.setOtpFailedAttempts(0);
                 log.info("MFA SUCCESSFUL: OTP validated for user: {}", userAccount.getEmail());
                 return true;
             } else {
-
-                int attempts = security.getOtpFailedAttempts() + 1;
-                security.setOtpFailedAttempts(attempts);
-                log.warn("MFA FAILURE: Invalid OTP code entered. Attempt {}/3 for user: {}", attempts, userAccount.getEmail());
+                log.warn("MFA FAILURE: Invalid OTP code entered for user: {}", userAccount.getEmail());
                 return false;
             }
 
         } catch (RuntimeException e) {
-            if (e.getMessage() != null && (e.getMessage().startsWith("MFA_EXPIRED") || e.getMessage().startsWith("MFA_BLOCKED"))) {
+            if (e.getMessage() != null && e.getMessage().startsWith("MFA_EXPIRED")) {
                 throw e;
             }
             throw new RuntimeException("MFA_ERROR: Error in token structure.");

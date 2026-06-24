@@ -41,7 +41,6 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             throws IOException, ServletException {
 
         String email = authentication.getName();
-
         UserAccount userAccount = userRepository.findByEmail(email);
 
         response.setContentType("application/json");
@@ -63,9 +62,9 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             return;
         }
 
-        // PREVENTIVE LOCKOUT CONTROL
+        boolean isCurrentlyLocked = lockoutEvaluationService.isAccountLocked(email,null);
 
-        if (security.isBlocked() || !security.isAccountNonLocked()) {
+        if (isCurrentlyLocked && (security.isBlocked() || !security.isAccountNonLocked())) {
             log.warn("BLOCKED LOGIN ATTEMPT FOR USER: {}", email);
 
             long remainingSeconds = lockoutEvaluationService.getRemainingLockoutTimeInSeconds(email);
@@ -81,15 +80,13 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             return;
         }
 
-        // SUCCESSFUL ATTEMPTS RESET (MYSQL & REDIS)
+        security.unlockAccount();
+
+        userRepository.saveAndFlush(userAccount);
 
         lockoutEvaluationService.resetAttempts(email);
 
-        if (security.getFailedAttempts() > 0) {
-            security.resetFailedAttempts();
-            log.info("LOGIN SUCCESS: Resetting failed attempts counter to 0 in MySQL for user: {}", email);
-
-        }
+        log.info("LOGIN SUCCESS: Counter reset and database flushed to 0 for user: {}", email);
 
         String authResult = adaptiveAuthService.processAdaptiveLogin(request, response, authentication, userAccount, security);
 

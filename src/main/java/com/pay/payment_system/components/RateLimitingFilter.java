@@ -1,5 +1,6 @@
 package com.pay.payment_system.components;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.configservice.RateLimiterService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -52,7 +53,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             boolean canConsume = rateLimiterService.tryConsume(clientIp);
 
             if (!canConsume) {
-                log.warn("BLOCKED FOR RATELIMIT IP: {}", clientIp);
+                log.warn("BLOCKED FOR RATELIMIT IP: {}", safe (clientIp));
 
                 String origin = request.getHeader("Origin");
                 if (origin != null && (origin.contains("localhost:5500") || origin.contains("127.0.0.1:5500"))) {

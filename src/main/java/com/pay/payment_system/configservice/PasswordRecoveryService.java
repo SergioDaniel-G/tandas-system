@@ -1,5 +1,6 @@
 package com.pay.payment_system.configservice;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.entity.UserAccount;
 import com.pay.payment_system.entity.UserSecurity;
 import com.pay.payment_system.repository.UserRepository;
@@ -26,7 +27,7 @@ public class PasswordRecoveryService {
 
     @Transactional
     public Map<String, Object> processForgotPassword(String email, String mobileNum) {
-        log.info("PASSWORD RECOVERY: Attempt initiated for email: {}", email);
+        log.info("PASSWORD RECOVERY: Attempt initiated for email: {}", safe (email));
 
         UserAccount userAccount = userRepository.findByEmailAndMobileNumber(email, mobileNum);
         Map<String, Object> response = new HashMap<>();
@@ -37,7 +38,7 @@ public class PasswordRecoveryService {
                 LocaleContextHolder.getLocale());
 
         if (userAccount != null) {
-            log.info("PASSWORD RECOVERY: Success for email: {}", email);
+            log.info("PASSWORD RECOVERY: Success for email: {}", safe (email));
 
             String secureToken = UUID.randomUUID().toString();
 
@@ -55,7 +56,7 @@ public class PasswordRecoveryService {
             response.put("status", "OK");
 
         } else {
-            log.warn("PASSWORD RECOVERY FAILED: {} / {}", email, mobileNum);
+            log.warn("PASSWORD RECOVERY FAILED: {} / {}", safe (email), safe (mobileNum));
 
             response.put("success", true);
             response.put("message", genericMsg);
@@ -69,7 +70,7 @@ public class PasswordRecoveryService {
         Map<String, Object> response = new HashMap<>();
 
         if (!Objects.equals(password, cpassword)) {
-            log.warn("PASSWORD CHANGE FAILED: Passwords do not match for token: {}", token);
+            log.warn("PASSWORD CHANGE FAILED: Passwords do not match for token: {}", safe (token));
             String msg = messageSource.getMessage(
                     "password.change.mismatch", null, "Passwords do not match.", LocaleContextHolder.getLocale());
 
@@ -91,7 +92,7 @@ public class PasswordRecoveryService {
 
             userRepository.save(userAccount);
 
-            log.info("PASSWORD CHANGE SUCCESS for user: {}", userAccount.getEmail());
+            log.info("PASSWORD CHANGE SUCCESS for user: {}", safe (userAccount.getEmail()));
             String successMsg = messageSource.getMessage(
                     "password.change.success", null, "¡Password changed successfully.!", LocaleContextHolder.getLocale());
 
@@ -100,7 +101,7 @@ public class PasswordRecoveryService {
             response.put("redirectUrl", "/login");
             response.put("status", "OK");
         } else {
-            log.error("PASSWORD CHANGE CRITICAL: Token {} is invalid, used or expired.", token);
+            log.error("PASSWORD CHANGE CRITICAL: Token {} is invalid, used or expired.", safe (token));
             String msg = messageSource.getMessage(
                     "password.change.user.notfound", null, "User not found.", LocaleContextHolder.getLocale());
 

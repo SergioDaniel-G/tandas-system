@@ -1,5 +1,6 @@
 package com.pay.payment_system.components;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.configservice.LoginLockoutEvaluationService;
 import com.pay.payment_system.configservice.LoginLockoutEvaluationService.LockoutResult;
 import com.pay.payment_system.configservice.AuditLogService;
@@ -78,6 +79,7 @@ public class CustomLoginFailureHandler implements AuthenticationFailureHandler {
 
             if (result.lockoutCount() > 4) {
                 int extraRequests = result.lockoutCount() - 4;
+
                 if (extraRequests == 0 || extraRequests % 100 == 0) {
                     customDescription = String.format(
                             "Maximum login attempts exceeded. Account frozen permanently (24h jail). Total mitigated attack volume: %d requests.",
@@ -93,7 +95,7 @@ public class CustomLoginFailureHandler implements AuthenticationFailureHandler {
             }
 
             if (customDescription != null) {
-                auditLogService.logCritical(cleanEmail, ip, "ACCOUNT_LOCKED", customDescription);
+                auditLogService.logCritical(safe (cleanEmail), ip, "ACCOUNT_LOCKED", customDescription);
             }
         }
 

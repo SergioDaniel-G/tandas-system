@@ -1,5 +1,6 @@
 package com.pay.payment_system.configservice;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.twilio.Twilio;
 import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
@@ -64,7 +65,7 @@ public class SmsService {
 
                 log.info("TWILIO SMS SUCCESS: Alert dispatched to master phone. SID: {}", message.getSid());
             } catch (Exception e) {
-                log.error("TWILIO SMS ERROR: Failed to deliver message. Reason: {}", e.getMessage());
+                log.error("TWILIO SMS ERROR: Failed to deliver message. Reason: {}", safe (e.getMessage()));
             }
         }, mailTaskExecutor);
     }

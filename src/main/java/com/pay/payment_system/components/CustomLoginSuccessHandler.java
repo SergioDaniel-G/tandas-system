@@ -1,5 +1,6 @@
 package com.pay.payment_system.components;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.configservice.AdaptiveAuthService;
 import com.pay.payment_system.configservice.LoginLockoutEvaluationService;
 import com.pay.payment_system.entity.UserAccount;
@@ -40,14 +41,14 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                                         Authentication authentication)
             throws IOException, ServletException {
 
-        String email = authentication.getName();
+        String email =  authentication.getName();
         UserAccount userAccount = userRepository.findByEmail(email);
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
         if (userAccount == null) {
-            log.error("AUTHENTICATION SUCCESS HANDLER ERROR: USER NOT FOUND FOR EMAIL: {}", email);
+            log.error("AUTHENTICATION SUCCESS HANDLER ERROR: USER NOT FOUND FOR EMAIL: {}", safe (email));
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().print("{\"status\":\"ERROR\",\"message\":\"User not found\"}");
             return;
@@ -56,7 +57,7 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         UserSecurity security = userAccount.getSecurity();
 
         if (security == null) {
-            log.error("SECURITY ENTITY NOT FOUND FOR USER: {}", email);
+            log.error("SECURITY ENTITY NOT FOUND FOR USER: {}", safe (email));
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             response.getWriter().print("{\"status\":\"ERROR\",\"message\":\"Security profile not found\"}");
             return;
@@ -65,7 +66,7 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         boolean isCurrentlyLocked = lockoutEvaluationService.isAccountLocked(email,null);
 
         if (isCurrentlyLocked && (security.isBlocked() || !security.isAccountNonLocked())) {
-            log.warn("BLOCKED LOGIN ATTEMPT FOR USER: {}", email);
+            log.warn("BLOCKED LOGIN ATTEMPT FOR USER: {}", safe (email));
 
             long remainingSeconds = lockoutEvaluationService.getRemainingLockoutTimeInSeconds(email);
 
@@ -86,7 +87,7 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
         lockoutEvaluationService.resetAttempts(email);
 
-        log.info("LOGIN SUCCESS: Counter reset and database flushed to 0 for user: {}", email);
+        log.info("LOGIN SUCCESS: Counter reset and database flushed to 0 for user: {}", safe (email));
 
         String authResult = adaptiveAuthService.processAdaptiveLogin(request, response, authentication, userAccount, security);
 
@@ -108,7 +109,7 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             SecurityContextHolder.getContext().setAuthentication(preVerifiedAuth);
             securityContextRepository.saveContext(SecurityContextHolder.getContext(), request, response);
 
-            log.info("MFA required for user {}. Role temporarily downgraded to ROLE_PRE_VERIFIED.", email);
+            log.info("MFA required for user {}. Role temporarily downgraded to ROLE_PRE_VERIFIED.", safe (email));
 
             clearAuthenticationAttributes(request);
             response.setStatus(HttpServletResponse.SC_OK);

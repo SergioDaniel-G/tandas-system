@@ -1,5 +1,6 @@
 package com.pay.payment_system.controller;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.configservice.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,6 @@ public class CronController {
     public ResponseEntity<String> triggerMonthlyPayments(
             @RequestHeader(value = "X-Cron-Token", required = false) String token) {
 
-        // VALIDATE EXTERNAL CRON SECURITY TOKEN
         if (token == null || !token.equals(secretToken)) {
             log.warn("CRON SECURITY ALERT: Unauthorized attempt to trigger monthly payments. Invalid token provided.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -40,7 +40,7 @@ public class CronController {
             log.info("CRON TASK SUCCESS: Monthly payment execution finished correctly.");
             return ResponseEntity.ok("Monthly payment check completed and SMS notifications sent.");
         } catch (Exception e) {
-            log.error("CRON TASK ERROR: Failed executing monthly payments check. Reason: {}", e.getMessage());
+            log.error("CRON TASK ERROR: Failed executing monthly payments check. Reason: {}", safe (e.getMessage()));
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("An error occurred during the batch process: " + e.getMessage());
         }

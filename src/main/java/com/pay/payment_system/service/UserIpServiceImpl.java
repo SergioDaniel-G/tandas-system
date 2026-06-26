@@ -1,5 +1,6 @@
 package com.pay.payment_system.service;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.entity.UserTrustedIp;
 import com.pay.payment_system.repository.UserTrustedIpRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +36,7 @@ public class UserIpServiceImpl implements UserIpService {
         String formattedEmail = email.trim().toLowerCase();
         String formattedIp = ipAddress.trim();
 
-        log.info("SECURITY SERVICE: Registering or updating trusted IP [{}] for user [{}]", formattedIp, formattedEmail);
+        log.info("SECURITY SERVICE: Registering or updating trusted IP [{}] for user [{}]", safe(formattedIp), safe(formattedEmail));
 
         userTrustedIpRepository.findByEmailAndIpAddress(formattedEmail, formattedIp)
                 .ifPresentOrElse(
@@ -67,7 +68,7 @@ public class UserIpServiceImpl implements UserIpService {
         String formattedIp = ipAddress.trim();
         boolean trusted = userTrustedIpRepository.existsByEmailAndIpAddress(formattedEmail, formattedIp);
 
-        log.info("SECURITY CHECK: Is IP [{}] trusted for user [{}]? -> {}", formattedIp, formattedEmail, trusted);
+        log.info("SECURITY CHECK: Is IP [{}] trusted for user [{}]? -> {}", safe (formattedIp), safe (formattedEmail), trusted);
         return trusted;
     }
 }

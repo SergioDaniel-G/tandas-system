@@ -75,7 +75,7 @@ public class UserRegistrationController {
 
         if (captchaResponse == null || !recaptchaService.validate(captchaResponse)) {
             log.warn("REGISTRATION: CAPTCHA validation failed for incoming request.");
-            String msg = messageSource.getMessage("registration.captcha.failed", null, LocaleContextHolder.getLocale());
+            String msg = messageSource.getMessage("registration.captcha.failed", null, "CAPTCHA verification failed.", LocaleContextHolder.getLocale());
             response.put("status", "error");
             response.put("message", msg);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);

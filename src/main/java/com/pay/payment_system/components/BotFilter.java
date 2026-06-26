@@ -1,5 +1,6 @@
 package com.pay.payment_system.components;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
@@ -50,10 +51,10 @@ public class BotFilter implements Filter {
 
                     if (accumulated > 0) {
                         log.warn("SECURITY ALERT: Automated tool '{}' blocked from IP {}. [Plus {} silent requests blocked in the last interval]",
-                                userAgent, clientIp, accumulated);
+                                safe(userAgent), safe(clientIp), accumulated);
                     } else {
                         log.warn("SECURITY ALERT [IMMEDIATE]: Automated tool '{}' blocked from accessing /login from IP {}",
-                                userAgent, clientIp);
+                                safe(userAgent), safe(clientIp));
                     }
                 } else {
 

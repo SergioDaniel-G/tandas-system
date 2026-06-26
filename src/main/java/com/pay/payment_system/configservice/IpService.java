@@ -1,5 +1,6 @@
 package com.pay.payment_system.configservice;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.components.RequestDeviceParser;
 import com.pay.payment_system.entity.UserTrustedIp;
 import com.pay.payment_system.repository.UserTrustedIpRepository;
@@ -38,7 +39,7 @@ public class IpService {
         }
 
         log.info("SECURITY_AUDIT | Email: {} | IP: {} | Status: {} | Risk: {} | Bot: {} | Device: {} | Reason: {} | UA: {}",
-                email, ipAddress, status, risk, isBot, device, (reason != null ? reason : "NONE"), userAgent);
+                safe (email), safe (ipAddress), status, risk, isBot, device, (reason != null ? safe (reason) : "NONE"), safe (userAgent));
 
         if ("SUCCESSFUL".equals(status) && !isBot) {
             saveOrUpdateTrustedIp(email, ipAddress);
@@ -50,7 +51,8 @@ public class IpService {
                 .ifPresentOrElse(
                         trustedIp -> {
                             trustedIp.setLastUsedAt(LocalDateTime.now());
-                            log.debug("Trusted IP timestamp updated for user: {}", email);
+                            userTrustedIpRepository.save(trustedIp);
+                            log.debug("Trusted IP timestamp updated for user: {}", safe (email));
                         },
                         () -> {
 
@@ -60,7 +62,7 @@ public class IpService {
                                     .lastUsedAt(LocalDateTime.now())
                                     .build();
                             userTrustedIpRepository.save(newTrustedIp);
-                            log.info("NEW TRUSTED IP REGISTERED | User: {} | IP: {}", email, ipAddress);
+                            log.info("NEW TRUSTED IP REGISTERED | User: {} | IP: {}", safe (email), safe (ipAddress));
                         }
                 );
     }

@@ -1,5 +1,6 @@
 package com.pay.payment_system.configservice;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.DTO.UserRegistrationDto;
 import com.pay.payment_system.entity.UserAccount;
 import com.pay.payment_system.service.UserService;
@@ -56,7 +57,7 @@ public class UserRegistrationProcessingService {
         UserAccount accountExist = userService.findByEmail(userRegistrationDto.getEmail());
 
         if (accountExist != null) {
-            log.info("REGISTRATION: Email '{}' already exists.", userRegistrationDto.getEmail());
+            log.info("REGISTRATION: Email '{}' already exists.", safe (userRegistrationDto.getEmail()));
 
             sendAccountAlreadyExistsAlert(userRegistrationDto.getEmail());
 
@@ -69,7 +70,7 @@ public class UserRegistrationProcessingService {
         }
 
         userService.save(userRegistrationDto);
-        log.info("REGISTRATION SUCCESS: New user registered with email: {}", userRegistrationDto.getEmail());
+        log.info("REGISTRATION SUCCESS: New user registered with email: {}", safe (userRegistrationDto.getEmail()));
 
         response.put("status", "success");
         response.put("message", "User registered successfully!");
@@ -97,9 +98,9 @@ public class UserRegistrationProcessingService {
 
             try {
                 mailSender.send(message);
-                log.info("REGISTRATION SECURITY: Alert email sent successfully to: {}", email);
+                log.info("REGISTRATION SECURITY: Alert email sent successfully to: {}", safe (email));
             } catch (Exception e) {
-                log.error("REGISTRATION SECURITY ERROR: Failed to send alert email: {}", e.getMessage());
+                log.error("REGISTRATION SECURITY ERROR: Failed to send alert email: {}", safe (e.getMessage()));
             }
         }, mailTaskExecutor);
     }

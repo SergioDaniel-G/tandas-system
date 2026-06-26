@@ -1,5 +1,6 @@
 package com.pay.payment_system.service;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.DTO.UserRegistrationDto;
 import com.pay.payment_system.configservice.LoginLockoutEvaluationService;
 import com.pay.payment_system.entity.Role;
@@ -37,7 +38,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserAccount save(UserRegistrationDto dto) {
-        log.info("USER SERVICE: Registering new user account with email: {}", dto.getEmail());
+        log.info("USER SERVICE: Registering new user account with email: {}", safe (dto.getEmail()));
 
         Role defaultRole = roleRepository.findByName("ROLE_USER")
                 .orElseThrow(() -> new IllegalStateException("ROLE_USER could not be found in the database."));
@@ -79,13 +80,13 @@ public class UserServiceImpl implements UserService {
 
         UserSecurity security = user.getSecurity();
         if (security == null) {
-            log.error("SECURITY CRITICAL: User {} exists but has no UserSecurity profile linked.", formattedEmail);
+            log.error("SECURITY CRITICAL: User {} exists but has no UserSecurity profile linked.", safe (formattedEmail));
             throw new UsernameNotFoundException("Invalid username or password.");
         }
 
         boolean isLockedInMySQL = !security.isAccountNonLocked();
         if (isLockedInMySQL) {
-            log.warn("SECURITY LOCK: User {} is locked permanently in MySQL.", formattedEmail);
+            log.warn("SECURITY LOCK: User {} is locked permanently in MySQL.", safe (formattedEmail));
             throw new org.springframework.security.authentication.LockedException("Account permanently locked.");
         }
 

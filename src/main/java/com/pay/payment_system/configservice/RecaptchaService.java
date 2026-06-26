@@ -1,5 +1,6 @@
 package com.pay.payment_system.configservice;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,7 +60,7 @@ public class RecaptchaService {
             boolean success = result != null && Boolean.TRUE.equals(result.get("success"));
 
             if (!success) {
-                log.warn("RECAPTCHA FAILED: Google API responded with failure. Result: {}", result);
+                log.warn("RECAPTCHA FAILED: Google API responded with failure. Result: {}", result != null ? safe(result.toString()) : "null");
                 return false;
             }
 
@@ -76,7 +77,7 @@ public class RecaptchaService {
             return true;
 
         } catch (Exception e) {
-            log.error("RECAPTCHA ERROR: Communication with Google API failed. Message: {}", e.getMessage());
+            log.error("RECAPTCHA ERROR: Communication with Google API failed. Message: {}", safe (e.getMessage()));
             return false;
         }
     }

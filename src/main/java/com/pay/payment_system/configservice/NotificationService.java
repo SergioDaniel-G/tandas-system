@@ -1,5 +1,6 @@
 package com.pay.payment_system.configservice;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.entity.Payment;
 import com.pay.payment_system.payments.PaymentStatus;
 import com.pay.payment_system.repository.PaymentRepository;
@@ -32,7 +33,7 @@ public class NotificationService {
                 smsService.sendSmsAlert(smsMessage);
                 log.info("SMS successfully sent for payment ID: {}", payment.getId());
             } catch (Exception e) {
-                log.error("Failed to send SMS for payment ID: {}. Error: {}", payment.getId(), e.getMessage());
+                log.error("Failed to send SMS for payment ID: {}. Error: {}", payment.getId(), safe (e.getMessage()));
             }
         }
     }

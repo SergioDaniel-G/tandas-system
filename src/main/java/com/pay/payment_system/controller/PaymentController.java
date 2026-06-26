@@ -1,5 +1,6 @@
 package com.pay.payment_system.controller;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.entity.Payment;
 import com.pay.payment_system.service.PaymentService;
 import jakarta.validation.Valid;
@@ -39,7 +40,7 @@ public class PaymentController {
     @PostMapping("/create")
     public ResponseEntity<?> create(@Valid @RequestBody Payment request) {
         try {
-            log.info("Creating payment for client {}", request.getClient());
+            log.info("Creating payment for client {}", safe (request.getClient()));
 
             Payment saved = paymentService.savePayment(
                     request.getClient(),
@@ -51,8 +52,8 @@ public class PaymentController {
             return ResponseEntity.ok(saved);
 
         } catch (Exception e) {
-            log.error("Error creating payment: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(e.getMessage());
+            log.error("Error creating payment: {}", safe (e.getMessage()));
+            return ResponseEntity.badRequest().body("An error occurred while processing the payment.");
         }
     }
 
@@ -70,11 +71,11 @@ public class PaymentController {
             return ResponseEntity.ok(updated);
 
         } catch (IllegalArgumentException e) {
-            log.warn("Validation error updating ID {}: {}", id, e.getMessage());
+            log.warn("Validation error updating ID {}: {}", id, safe(e.getMessage()));
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
-            log.error("Unexpected error updating ID {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(e.getMessage());
+            log.error("Unexpected error updating ID {}: {}", id, safe(e.getMessage()));
+            return ResponseEntity.internalServerError().body("Internal server error updating entity.");
         }
     }
 

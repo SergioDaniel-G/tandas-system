@@ -1,5 +1,6 @@
 package com.pay.payment_system.controller;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.configservice.MfaProcessingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -77,7 +78,7 @@ public class AuthMfaController {
             ));
         }
 
-        log.warn("MFA WARNING: Unknown redirection token received: {}", result);
+        log.warn("MFA WARNING: Unknown redirection token received: {}", safe (result));
         return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", "Authentication failed."));
     }
 
@@ -100,6 +101,7 @@ public class AuthMfaController {
                         ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("status", "UNAUTHORIZED", "message", "Expired session."));
             };
         } catch (Exception e) {
+            log.error("MFA ERROR: Internal error during resend process.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("status", "ERROR", "message", "Internal error."));
         }
     }

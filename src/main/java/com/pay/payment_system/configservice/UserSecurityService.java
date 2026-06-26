@@ -1,5 +1,6 @@
 package com.pay.payment_system.configservice;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.entity.UserAccount;
 import com.pay.payment_system.entity.UserSecurity;
 import com.pay.payment_system.repository.UserRepository;
@@ -34,10 +35,10 @@ public class UserSecurityService {
             UserSecurity security = user.getSecurity();
             if (security.getFailedAttempts() > 0) {
                 security.resetFailedAttempts();
-                log.info("LOGIN SUCCESSFUL: ATTEMPTS RESET FOR USER: {}", email);
+                log.info("LOGIN SUCCESSFUL: ATTEMPTS RESET FOR USER: {}", safe (email));
             }
             security.updateLastLogin();
-            log.info("USER METADATA UPDATED: LAST LOGIN DATE RECORDED FOR: {}", email);
+            log.info("USER METADATA UPDATED: LAST LOGIN DATE RECORDED FOR: {}", safe (email));
         }
         return user;
     }
@@ -46,12 +47,12 @@ public class UserSecurityService {
     public UserSecurity handleFailedLoginAttempt(UserAccount user, String email) {
         UserSecurity security = user.getSecurity();
         if (security == null) {
-            log.error("SECURITY ENTITY NOT FOUND FOR USER: {}", email);
+            log.error("SECURITY ENTITY NOT FOUND FOR USER: {}", safe (email));
             return null;
         }
 
         if (security.isBlocked()) {
-            log.error("ACCOUNT LOCKED: {}", email);
+            log.error("ACCOUNT LOCKED: {}", safe (email));
             return null;
         }
 
@@ -94,10 +95,10 @@ public class UserSecurityService {
             );
 
             if (isHashValid) {
-                log.info("MFA SUCCESSFUL: OTP validated for user: {}", userAccount.getEmail());
+                log.info("MFA SUCCESSFUL: OTP validated for user: {}", safe (userAccount.getEmail()));
                 return true;
             } else {
-                log.warn("MFA FAILURE: Invalid OTP code entered for user: {}", userAccount.getEmail());
+                log.warn("MFA FAILURE: Invalid OTP code entered for user: {}", safe (userAccount.getEmail()));
                 return false;
             }
 

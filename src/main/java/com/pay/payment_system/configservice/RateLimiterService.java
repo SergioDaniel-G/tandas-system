@@ -1,5 +1,6 @@
 package com.pay.payment_system.configservice;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.BucketConfiguration;
@@ -28,7 +29,7 @@ public class RateLimiterService {
                 .addLimit(Bandwidth.classic(capacity, Refill.greedy(refillTokens, Duration.ofMinutes(1))))
                 .build();
 
-        log.info("MEMURAI Rate Limiting Bucket configured successfully. Capacity: {}, Refill: tokens every min.", capacity, refillTokens);
+        log.info("MEMURAI Rate Limiting Bucket configured successfully. Capacity: {}, Refill: {} tokens every min.", capacity, refillTokens);
     }
 
     public boolean tryConsume(String clientIp) {
@@ -45,7 +46,7 @@ public class RateLimiterService {
             return canConsume;
 
         } catch (Exception e) {
-            log.error(" CRITICAL_ERROR: Failed connect with Redis: ", e);
+            log.error(" CRITICAL_ERROR: Failed connect with Redis: {}", safe(e.getMessage()));
 
             return true;
         }

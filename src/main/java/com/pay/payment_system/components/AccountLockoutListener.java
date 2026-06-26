@@ -1,5 +1,6 @@
 package com.pay.payment_system.components;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.configservice.IpService;
 import com.pay.payment_system.configservice.UserSecurityService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,22 +25,24 @@ public class AccountLockoutListener {
     @EventListener
     @Transactional
     public void onSuccess(AuthenticationSuccessEvent event) {
+
         String email = event.getAuthentication().getName().trim().toLowerCase();
+
         userSecurityService.handleSuccessfulLogin(email);
 
         HttpServletRequest request = getCurrentHttpRequest();
         if (request != null) {
             ipService.registerAccessAttempt(email, "INITIAL_LOGIN", "Login: Correct credentials", request);
-            log.info("AUDIT LOG: Initial login access registered for user: {}", email);
+            log.info("AUDIT LOG: Initial login access registered for user: {}", safe (email));
         }
     }
 
     @EventListener
     @Transactional
     public void onFailure(AbstractAuthenticationFailureEvent event) {
-        String email = event.getAuthentication().getName().trim().toLowerCase();
+        String email = safe(event.getAuthentication().getName().trim().toLowerCase());
 
-        log.debug("AUTH FAILURE EVENT DETECTED: Propagating to CustomLoginFailureHandler for core processing: {}", email);
+        log.warn("FAILURE EVENT DETECTED: Propagating to CustomLoginFailureHandler for core processing: {}",safe (email));
     }
 
     private HttpServletRequest getCurrentHttpRequest() {

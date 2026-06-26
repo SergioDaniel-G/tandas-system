@@ -1,5 +1,6 @@
 package com.pay.payment_system.configservice;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.entity.UserAccount;
 import com.pay.payment_system.entity.UserSecurity;
 import com.pay.payment_system.repository.UserRepository;
@@ -27,6 +28,7 @@ public class LoginLockoutEvaluationService {
     public record LockoutResult(int currentAttempts, boolean dynamicLockTriggered, long lockoutMinutes, int lockoutCount) {}
 
     public LockoutResult registerFailedAttempt(String email) {
+
         if (email == null || email.trim().isEmpty()) {
             return new LockoutResult(0, false, 0, 0);
         }
@@ -91,10 +93,10 @@ public class LoginLockoutEvaluationService {
                 UserSecurity security = user.getSecurity();
                 security.setAccountNonLocked(false);
                 userRepository.save(user);
-                log.error("CRITICAL SECURITY HARDENING: User {} permanently locked in MySQL.", email);
+                log.error("CRITICAL SECURITY HARDENING: User {} permanently locked in MySQL.",safe (email));
             }
         } catch (Exception e) {
-            log.error("CRITICAL ERROR: Failed to execute permanent DB lock", e);
+            log.error("CRITICAL ERROR: Failed to execute permanent DB lock. Message: {}", safe(e.getMessage()));
         }
     }
 

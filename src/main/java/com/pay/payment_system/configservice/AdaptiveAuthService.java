@@ -1,5 +1,6 @@
 package com.pay.payment_system.configservice;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.entity.UserAccount;
 import com.pay.payment_system.entity.UserSecurity;
 import com.pay.payment_system.repository.UserRepository;
@@ -44,7 +45,7 @@ public class AdaptiveAuthService {
 
         String lockKey = "login:lock:" + cleanEmail;
         if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey))) {
-            log.warn("ADAPTIVE LOGIN BLOCKED: User {} tried to login, but has an active progressive RAM lock.", email);
+            log.warn("ADAPTIVE LOGIN BLOCKED: User {} tried to login, but has an active progressive RAM lock.", safe (email));
             return "REDIRECT_BLOCKED";
         }
 
@@ -52,7 +53,7 @@ public class AdaptiveAuthService {
         boolean isKnownDevice = ipService.isIpKnown(email, ip);
 
         if (isKnownDevice) {
-            log.info("ADAPTIVE AUTH: KNOWN IP DETECTED ({}) FOR USER {}. BYPASSING MFA.", ip, email);
+            log.info("ADAPTIVE AUTH: KNOWN IP DETECTED ({}) FOR USER {}. BYPASSING MFA.",safe (ip), safe (email));
 
             security.updateLastLogin();
             security.resetFailedAttempts();
@@ -78,7 +79,7 @@ public class AdaptiveAuthService {
 
         } else {
 
-            log.warn("ADAPTIVE AUTH: UNKNOWN OR NEW IP DETECTED ({}) FOR USER {}. INITIATING MFA CHALLENGE.", ip, email);
+            log.warn("ADAPTIVE AUTH: UNKNOWN OR NEW IP DETECTED ({}) FOR USER {}. INITIATING MFA CHALLENGE.",safe (ip), safe (email));
 
             ipService.registerAccessAttempt(email, "INITIAL_LOGIN", "Step 1: Correct credentials", request);
 

@@ -1,5 +1,6 @@
 package com.pay.payment_system.configservice;
 
+import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.entity.UserAccount;
 import com.pay.payment_system.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,7 +51,7 @@ public class MfaProcessingService {
 
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("OTP_CRYPTO_TOKEN") == null) {
-            log.warn("MFA SUSPICIOUS: Attempt with missing or expired session token for user: {}", cleanEmail);
+            log.warn("MFA SUSPICIOUS: Attempt with missing or expired session token for user: {}", safe (cleanEmail));
             return triggerLockoutIncrement(cleanEmail, session, "STATUS_EXPIRED");
         }
 
@@ -111,7 +112,7 @@ public class MfaProcessingService {
             }
 
             log.error("MFA SECURITY ESCALATION: Lockout level [{}] activated for {}. Blocked for {} minutes.",
-                    currentAttempts, cleanEmail, lockDurationMinutes);
+                    currentAttempts, safe (cleanEmail), lockDurationMinutes);
 
             return "REDIRECT_BLOCKED_" + lockDurationSeconds;
         }
@@ -146,7 +147,7 @@ public class MfaProcessingService {
         }
 
         if (currentAttempts != null && currentAttempts >= 3) {
-            log.warn("MFA RESEND FLOODING: User {} blocked due to consecutive code requests.", cleanEmail);
+            log.warn("MFA RESEND FLOODING: User {} blocked due to consecutive code requests.", safe (cleanEmail));
             return triggerLockoutIncrement(cleanEmail, session, "REDIRECT_BLOCKED_");
         }
 
@@ -159,4 +160,5 @@ public class MfaProcessingService {
         session.setAttribute("OTP_CRYPTO_TOKEN", newCryptoToken);
         return "RESEND_SUCCESS";
     }
+
 }

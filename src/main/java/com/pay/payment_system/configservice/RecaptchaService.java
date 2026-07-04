@@ -29,9 +29,9 @@ public class RecaptchaService {
 
     private final RestTemplate restTemplate;
 
-    /**
-     * VALIDATES THE RECAPTCHA TOKEN WITH GOOGLE'S API AND ENFORCES HUMAN SCORE LIMITS.
-     */
+
+    // VALIDATES THE RECAPTCHA TOKEN WITH GOOGLE'S API AND ENFORCES HUMAN SCORE LIMITS.
+
     public boolean validate(String responseToken) {
         if (responseToken == null || responseToken.trim().isEmpty()) {
             log.warn("RECAPTCHA: empty token received");

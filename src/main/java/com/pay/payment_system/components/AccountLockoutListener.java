@@ -3,6 +3,7 @@ package com.pay.payment_system.components;
 import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.configservice.IpService;
 import com.pay.payment_system.configservice.UserSecurityService;
+import com.pay.payment_system.entity.UserAccount;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,8 @@ public class AccountLockoutListener {
     private final IpService ipService;
     private final UserSecurityService userSecurityService;
 
+    // LISTEN FOR SUCCESSFUL LOGINS
+
     @EventListener
     @Transactional
     public void onSuccess(AuthenticationSuccessEvent event) {
@@ -30,20 +33,26 @@ public class AccountLockoutListener {
 
         userSecurityService.handleSuccessfulLogin(email);
 
+        UserAccount user = userSecurityService.handleSuccessfulLogin(email);
+
         HttpServletRequest request = getCurrentHttpRequest();
         if (request != null) {
-            ipService.registerAccessAttempt(email, "INITIAL_LOGIN", "Login: Correct credentials", request);
-            log.info("AUDIT LOG: Initial login access registered for user: {}", safe (email));
+            ipService.registerAccessAttempt(user, "INITIAL_LOGIN", "Login: Correct credentials", request);
+            log.info("AUDIT LOG: Initial login access registered for user: {}", safe(user.getEmailCanonical()));
         }
     }
+
+    // LISTEN FOR FAILED LOGINS
 
     @EventListener
     @Transactional
     public void onFailure(AbstractAuthenticationFailureEvent event) {
-        String email = safe(event.getAuthentication().getName().trim().toLowerCase());
+        String email = event.getAuthentication().getName().trim().toLowerCase();
 
         log.warn("FAILURE EVENT DETECTED: Propagating to CustomLoginFailureHandler for core processing: {}",safe (email));
     }
+
+    // GETS THE CURRENT HTTP REQUEST TO EXTRACT THE IP AND BROWSER DATA
 
     private HttpServletRequest getCurrentHttpRequest() {
         ServletRequestAttributes attr = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();

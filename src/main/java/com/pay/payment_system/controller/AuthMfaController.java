@@ -23,10 +23,14 @@ public class AuthMfaController {
 
     private final MfaProcessingService mfaProcessingService;
 
+    // REDIRECTS INBOUND VERIFICATION TRAFFIC TO THE STATICAL MULTI FACTOR HTML INTERFACE PAGE
+
     @GetMapping("/verify-code")
     public String showMfaPage() {
         return "redirect:/mfa-page.html";
     }
+
+    // INTERCEPTS USER OTP SUBMISSIONS DELEGATING BUSINESS VALIDATION AND MAPPING THE ENHANCED REST SECURED STATUS RESPONSES
 
     @PostMapping("/auth/validate-otp")
     @ResponseBody
@@ -81,6 +85,8 @@ public class AuthMfaController {
         log.warn("MFA WARNING: Unknown redirection token received: {}", safe (result));
         return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", "Authentication failed."));
     }
+
+    // INDUCES MULTI FACTOR CODE REGENERATION COMMANDS ENFORCING DYNAMIC RATE LIMIT STATUS TOKENS ON FAILURE
 
     @PostMapping("/auth/mfa/resend")
     @ResponseBody

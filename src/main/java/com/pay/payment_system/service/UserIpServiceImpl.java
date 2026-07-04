@@ -1,7 +1,10 @@
 package com.pay.payment_system.service;
 
 import static com.pay.payment_system.config.LogSanitizer.safe;
+
+import com.pay.payment_system.entity.UserAccount;
 import com.pay.payment_system.entity.UserTrustedIp;
+import com.pay.payment_system.repository.UserRepository;
 import com.pay.payment_system.repository.UserTrustedIpRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -16,6 +20,7 @@ import java.util.List;
 public class UserIpServiceImpl implements UserIpService {
 
     private final UserTrustedIpRepository userTrustedIpRepository;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -23,6 +28,8 @@ public class UserIpServiceImpl implements UserIpService {
         log.info("SECURITY SERVICE: Fetching all active trusted IP records.");
         return userTrustedIpRepository.findAll();
     }
+
+    // REGISTERS A NEW UNRECOGNIZED NETWORK IP ADDRESS OR RENEWS THE TIME STAMP FOR AN EXISTING RECORD
 
     @Override
     @Transactional
@@ -38,7 +45,10 @@ public class UserIpServiceImpl implements UserIpService {
 
         log.info("SECURITY SERVICE: Registering or updating trusted IP [{}] for user [{}]", safe(formattedIp), safe(formattedEmail));
 
-        userTrustedIpRepository.findByEmailAndIpAddress(formattedEmail, formattedIp)
+        UserAccount user = Optional.ofNullable(userRepository.findByEmailCanonical(formattedEmail))
+                .orElseThrow(() -> new IllegalArgumentException("SECURITY ERROR: User not found for email: " + formattedEmail));
+
+        userTrustedIpRepository.findByUserAndIpAddress(user, formattedIp)
                 .ifPresentOrElse(
                         existingIp -> {
                             existingIp.setLastUsedAt(LocalDateTime.now());
@@ -47,7 +57,7 @@ public class UserIpServiceImpl implements UserIpService {
                         },
                         () -> {
                             UserTrustedIp newTrustedIp = UserTrustedIp.builder()
-                                    .email(formattedEmail)
+                                    .user(user)
                                     .ipAddress(formattedIp)
                                     .lastUsedAt(LocalDateTime.now())
                                     .build();
@@ -66,9 +76,14 @@ public class UserIpServiceImpl implements UserIpService {
 
         String formattedEmail = email.trim().toLowerCase();
         String formattedIp = ipAddress.trim();
-        boolean trusted = userTrustedIpRepository.existsByEmailAndIpAddress(formattedEmail, formattedIp);
+        UserAccount user = userRepository.findByEmailCanonical(formattedEmail);
+        if (user == null) {
+            return false;
+        }
 
-        log.info("SECURITY CHECK: Is IP [{}] trusted for user [{}]? -> {}", safe (formattedIp), safe (formattedEmail), trusted);
+        boolean trusted = userTrustedIpRepository.existsByUserAndIpAddress(user, formattedIp);
+
+        log.info("SECURITY CHECK: Is IP [{}] trusted for user [{}]? -> {}", safe(formattedIp), safe(formattedEmail), trusted);
         return trusted;
     }
 }

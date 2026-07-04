@@ -13,6 +13,8 @@ public class AuditLogService {
 
     private final RequestDeviceParser deviceParser;
 
+    // RECORDS DETAILED FAILED AUTHENTICATION ATTEMPTS WITH AUTOMATIC RISK ASSESSMENT AND DEVICE PARSING
+
     public void logFailedAttempt(String email, String ip, String agent, int attempts) {
         String device = deviceParser.determineDeviceType(agent);
         String riskLevel = (attempts >= 3) ? "MEDIUM" : "LOW";
@@ -21,10 +23,14 @@ public class AuditLogService {
                 safe(email), safe (ip), riskLevel, device, attempts, (agent != null ? safe (agent) : "UNKNOWN"));
     }
 
+    // REGISTERS GENERAL SYSTEM SEGREGATED SECURITY OR AUTHENTICATION PIPELINE FAILURES
+
     public void logFailure(String email, String ip, String description) {
         log.warn("SECURITY_AUDIT | Email: {} | IP: {} | Status: FAILED | Reason: {}",
                 safe (email), safe (ip), safe (description));
     }
+
+    // EMITS HIGH-PRIORITY ALERTS AND LOG ENTRIES FOR CRITICAL AND POTENTIALLY MALICIOUS OPERATIONS
 
     public void logCritical(String email, String ip, String action, String description) {
         log.error("CRITICAL_SECURITY_EVENT | Email: {} | IP: {} | Action: {} | Description: {}",

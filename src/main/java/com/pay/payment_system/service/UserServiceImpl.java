@@ -1,6 +1,8 @@
 package com.pay.payment_system.service;
 
 import static com.pay.payment_system.config.LogSanitizer.safe;
+
+import com.pay.payment_system.DTO.EmailCanonicalizer;
 import com.pay.payment_system.DTO.UserRegistrationDto;
 import com.pay.payment_system.configservice.LoginLockoutEvaluationService;
 import com.pay.payment_system.entity.Role;
@@ -35,10 +37,17 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final LoginLockoutEvaluationService lockoutEvaluationService;
 
+    // REGISTERS AND SAVES A NEW USER IN THE DATABASE WITH A DEFAULT ROLE
+
     @Override
     @Transactional
-    public UserAccount save(UserRegistrationDto dto) {
-        log.info("USER SERVICE: Registering new user account with email: {}", safe (dto.getEmail()));
+    public UserAccount save(UserRegistrationDto dto, String canonicalEmail) {
+        log.info("USER SERVICE: Registering new user account with email: {}", safe(canonicalEmail));
+
+        if (userRepository.existsByMobileNumber(dto.getMobileNumber())) {
+            log.warn("REGISTRATION BLOCKED: Mobile number {} is already linked to another account.", safe(dto.getMobileNumber()));
+            throw new IllegalArgumentException("PHONE_ALREADY_IN_USE");
+        }
 
         Role defaultRole = roleRepository.findByName("ROLE_USER")
                 .orElseThrow(() -> new IllegalStateException("ROLE_USER could not be found in the database."));
@@ -46,7 +55,8 @@ public class UserServiceImpl implements UserService {
         UserAccount user = UserAccount.builder()
                 .name(dto.getName())
                 .lastname(dto.getLastname())
-                .email(dto.getEmail().trim().toLowerCase())
+                .emailCanonical(canonicalEmail)
+                .emailDispatch(dto.getEmail())
                 .password(passwordEncoder.encode(dto.getPassword()))
                 .mobileNumber(dto.getMobileNumber())
                 .roles(Set.of(defaultRole))
@@ -65,35 +75,39 @@ public class UserServiceImpl implements UserService {
         if (username == null || username.isBlank()) {
             throw new UsernameNotFoundException("Username cannot be null or empty.");
         }
-        String formattedEmail = username.trim().toLowerCase();
 
-        if (lockoutEvaluationService.isAccountLocked(formattedEmail, null)) {
-            long remainingSeconds = lockoutEvaluationService.getRemainingLockoutTimeInSeconds(formattedEmail);
+        String canonicalLoginEmail = EmailCanonicalizer.canonicalize(username);
 
-            throw new org.springframework.security.core.userdetails.UsernameNotFoundException(
+        // EVALUATES TEMPORARY ACCOUNT LOCKOUT DUE TO SEVERAL REPEATED ATTEMPTS
+
+        if (lockoutEvaluationService.isAccountLocked(canonicalLoginEmail, null)) {
+            long remainingSeconds = lockoutEvaluationService.getRemainingLockoutTimeInSeconds(canonicalLoginEmail);
+
+            throw new UsernameNotFoundException(
                     "Too many failed attempts. Account temporarily frozen. Retry after " + remainingSeconds + " seconds."
             );
         }
 
-        UserAccount user = userRepository.findByEmailWithSecurityAndRoles(formattedEmail)
+
+        UserAccount user = userRepository.findByEmailCanonicalWithSecurityAndRoles(canonicalLoginEmail)
                 .orElseThrow(() -> new UsernameNotFoundException("Invalid username or password."));
 
         UserSecurity security = user.getSecurity();
         if (security == null) {
-            log.error("SECURITY CRITICAL: User {} exists but has no UserSecurity profile linked.", safe (formattedEmail));
+            log.error("SECURITY CRITICAL: User {} exists but has no UserSecurity profile linked.", safe(canonicalLoginEmail));
             throw new UsernameNotFoundException("Invalid username or password.");
         }
 
         boolean isLockedInMySQL = !security.isAccountNonLocked();
         if (isLockedInMySQL) {
-            log.warn("SECURITY LOCK: User {} is locked permanently in MySQL.", safe (formattedEmail));
+            log.warn("SECURITY LOCK: User {} is locked permanently in MySQL.", safe(canonicalLoginEmail));
             throw new org.springframework.security.authentication.LockedException("Account permanently locked.");
         }
 
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (attributes != null) {
             HttpServletRequest request = attributes.getRequest();
-            request.setAttribute("LOCKOUT_EMAIL", formattedEmail);
+            request.setAttribute("LOCKOUT_EMAIL", canonicalLoginEmail);
         }
 
         List<SimpleGrantedAuthority> authorities = user.getRoles().stream()
@@ -101,7 +115,7 @@ public class UserServiceImpl implements UserService {
                 .collect(Collectors.toList());
 
         return new User(
-                user.getEmail(),
+                user.getEmailCanonical(),
                 user.getPassword(),
                 true,
                 true,
@@ -113,30 +127,38 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
+    public UserAccount findByCanonicalEmail(String canonicalEmail) {
+        if (canonicalEmail == null || canonicalEmail.isBlank()) {
+            return null;
+        }
+        return userRepository.findByEmailCanonical(canonicalEmail.trim().toLowerCase());
+    }
+
+    // UPDATES ACCOUNT AUDIT HISTORY RECORDS WITH LAST TIME STAMP OF SUCCESSFUL ACCESS
+
+    @Override
+    @Transactional
+    public void updateLastLoginDate(String canonicalEmail, LocalDateTime loginDate) {
+        if (canonicalEmail == null || canonicalEmail.isBlank()) return;
+
+        UserAccount user = userRepository.findByEmailCanonical(canonicalEmail.trim().toLowerCase());
+        if (user != null && user.getSecurity() != null) {
+            user.getSecurity().setLastLogin(loginDate);
+            userRepository.save(user);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<UserAccount> findAllUsers() {
         log.info("USER SERVICE: Fetching all users.");
         return userRepository.findAll();
     }
 
+
     @Override
     @Transactional(readOnly = true)
     public UserAccount findByEmail(String email) {
-        if (email == null || email.isBlank()) {
-            return null;
-        }
-        return userRepository.findByEmail(email.trim().toLowerCase());
-    }
-
-    @Override
-    @Transactional
-    public void updateLastLoginDate(String email, LocalDateTime loginDate) {
-        if (email == null || email.isBlank()) return;
-
-        UserAccount user = userRepository.findByEmail(email.trim().toLowerCase());
-        if (user != null && user.getSecurity() != null) {
-            user.getSecurity().setLastLogin(loginDate);
-
-            userRepository.save(user);
-        }
+        return findByCanonicalEmail(EmailCanonicalizer.canonicalize(email));
     }
 }

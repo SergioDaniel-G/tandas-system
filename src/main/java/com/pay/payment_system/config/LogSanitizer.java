@@ -6,6 +6,8 @@ public final class LogSanitizer {
         throw new IllegalStateException("Utility class");
     }
 
+    // SANITIZES INPUT STRINGS BY REMOVING NEWLINES AND CONTROL CHARACTERS TO PREVENT LOG INJECTION ATTACKS
+
     public static String safe(String input) {
         if (input == null) {
             return "";

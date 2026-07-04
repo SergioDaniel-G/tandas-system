@@ -18,6 +18,8 @@ public class NotificationService {
     private final PaymentRepository paymentRepository;
     private final SmsService smsService;
 
+    // SCAN CHANNELS FOR UNPAID SYSTEM MONTHLY TRANSACTIONS AND DISPATCHES OUTBOUND SMS REMINDERS TO ACTIVE TARGET CLIENTS
+
     public void verifyMonthlyPayments() {
         LocalDate today = LocalDate.now();
 

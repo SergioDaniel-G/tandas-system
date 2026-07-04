@@ -8,7 +8,13 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "users")
+@Table(
+        name = "users",
+        indexes = {
+                @Index(name = "idx_user_email_canonical", columnList = "email_canonical", unique = true),
+                @Index(name = "idx_user_phone_number", columnList = "phone_number", unique = true)
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,6 +22,8 @@ import java.util.Set;
 @Builder
 @ToString(exclude = {"roles", "password", "security"})
 public class UserAccount implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,14 +35,17 @@ public class UserAccount implements Serializable {
     @Column(nullable = false, length = 100)
     private String lastname;
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String email;
-
     @Column(nullable = false, length = 255)
     private String password;
 
-    @Column(name = "phone_number", nullable = false, length = 10)
+    @Column(name = "phone_number",unique = true, nullable = false, length = 10)
     private String mobileNumber;
+
+    @Column(name = "email_canonical", unique = true, nullable = false, length = 254)
+    private String emailCanonical;
+
+    @Column(name = "email_dispatch", nullable = false, length = 254)
+    private String emailDispatch;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -54,9 +65,6 @@ public class UserAccount implements Serializable {
     )
     private UserSecurity security;
 
-    /*
-     * HELPER METHOD
-     */
     public void setSecurity(UserSecurity security) {
         this.security = security;
         if (security != null) {

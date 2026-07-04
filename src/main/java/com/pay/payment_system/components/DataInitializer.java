@@ -33,8 +33,9 @@ public class DataInitializer implements CommandLineRunner {
     @Value("${app.admin.mobile}")
     private String adminMobile;
 
+    // EXECUTES DATABASE SEEDING FOR DEFAULT ROLES AND THE ADMINISTRATOR USER UPON APPLICATION STARTUP
+
     @Override
-    @Transactional
     public void run(String... args) {
 
         databaseSeedingService.seedDefaultAdminAndRoles(

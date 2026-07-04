@@ -28,10 +28,14 @@ public class RegistrationController {
     private final MessageSource messageSource;
     private final PasswordRecoveryService passwordRecoveryService;
 
+    // RETURNS UNAUTHORIZED STATUS CODE AS A BACKSTOP ENTRYPOINT FOR MANUALLY TRIGGERED LOGIN ROUTING
+
     @GetMapping("/login")
     public ResponseEntity<Void> login() {
         return ResponseEntity.status(401).build();
     }
+
+    // REDIRECTS CLIENTS TO THE FORGOT PASSWORD HTML INTERFACE INJECTING CONTEXTUAL NOTIFICATION MESSAGES IF PRESENT
 
     @GetMapping("/loadForgotPassword")
     public RedirectView loadForgotPassword(@RequestParam(required = false) String msg) {
@@ -43,11 +47,15 @@ public class RegistrationController {
         return new RedirectView("/forgot_password.html");
     }
 
+    // REDIRECTS REQUESTS TO THE SECURE PASSWORD CREATION FORM APPENDING THE TRACKING TOKEN QUERY STRING PARAMETER
+
     @GetMapping("/loadResetPassword")
     public RedirectView loadResetPassword(@RequestParam String token) {
         log.info("Rendering reset password form for token");
         return new RedirectView("/reset_password.html?token=" + safe(token));
     }
+
+    // DISPATCHES USER CREDENTIAL METADATA TO THE BACKING PIPELINE TO START RECOVERY LOGIC AND BLINDS CONSUMERS FROM USER DATA STATUS
 
     @PostMapping("/forgotPassword")
     public ResponseEntity<?> forgotPassword(@RequestParam String email,
@@ -66,6 +74,8 @@ public class RegistrationController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
         }
     }
+
+    // PROCESSES SECURE OVER THE AIR PASSWORD REPLACEMENT REQUISITIONS BY COMPARING MATCHES AGAINST THE TARGET TOKEN
 
     @PostMapping("/changePassword")
     public ResponseEntity<?> resetPassword(@RequestParam String password,

@@ -15,6 +15,8 @@ public class SecurityInfoController {
 
     private final UserService userService;
 
+    // EVALUATES ACTIVE AUTHENTICATION PRINCIPALS TO DETERMINE IF ADMIN SYSTEM PRIVILEGES ARE GRANTED
+
     @GetMapping("/api/users/is-admin")
     @ResponseBody
     public ResponseEntity<Boolean> checkIfAdmin(Authentication authentication) {

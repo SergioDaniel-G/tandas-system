@@ -8,9 +8,14 @@ import java.util.List;
 
 public interface UserService extends UserDetailsService {
 
-        UserAccount save(UserRegistrationDto userRegistrationDto);
+        UserAccount save(UserRegistrationDto dto, String canonicalEmail);
+
+        UserAccount findByCanonicalEmail(String canonicalEmail);
+
         List<UserAccount> findAllUsers();
+
         UserAccount findByEmail(String email);
-        void updateLastLoginDate(String email, LocalDateTime loginDate);
+
+        void updateLastLoginDate(String canonicalEmail, LocalDateTime loginDate);
 
 }

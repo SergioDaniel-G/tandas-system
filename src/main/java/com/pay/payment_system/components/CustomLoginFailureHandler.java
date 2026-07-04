@@ -25,6 +25,8 @@ public class CustomLoginFailureHandler implements AuthenticationFailureHandler {
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
 
+    // HANDLES LOGIC WHEN AUTHENTICATION FAILS (WRONG CREDENTIALS OR ACCOUNT LOCKED)
+
     @Override
     public void onAuthenticationFailure(HttpServletRequest request,
                                         HttpServletResponse response,
@@ -66,6 +68,8 @@ public class CustomLoginFailureHandler implements AuthenticationFailureHandler {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.getWriter().print("{\"status\": \"ERROR\", \"message\": \"Password or email incorrect.\"}");
     }
+
+    // FORMATS AND SENDS THE LOCKED ACCOUNT RESPONSE WITH RE-TRY TIMERS AND AUDIT LOGS
 
     private void sendLockedResponse(HttpServletResponse response, String cleanEmail, String ip, LockoutResult result) throws IOException {
         long remainingSeconds = lockoutEvaluationService.getRemainingLockoutTimeInSeconds(cleanEmail);

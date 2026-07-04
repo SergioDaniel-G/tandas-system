@@ -8,6 +8,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    // ESTABLISHES CONTENT NEGOTIATION RULES AND DEFAULT MEDIA TYPES FOR INCOMING WEB REQUESTS
+
     @Override
     public void configureContentNegotiation(ContentNegotiationConfigurer configurer) {
         configurer

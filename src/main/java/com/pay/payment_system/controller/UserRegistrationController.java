@@ -11,11 +11,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Profile;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.context.i18n.LocaleContextHolder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,12 +35,16 @@ public class UserRegistrationController {
     private final MessageSource messageSource;
     private final UserRegistrationProcessingService userRegistrationProcessingService;
 
+    // EXPOSES THE ACTIVE PUBLIC RECAPTCHA SITE KEY REQUIRED FOR FRONTEND SECURITY COMPLIANCE HANDSHAKES
+
     @GetMapping("/recaptcha-key")
     public ResponseEntity<Map<String, String>> getRecaptchaKey() {
         Map<String, String> response = new HashMap<>();
         response.put("siteKey", recaptchaSiteKey);
         return ResponseEntity.ok(response);
     }
+
+    // RETRIEVES AND MAPS ALL EXISTING SYSTEM ACCOUNTS INTO FLAT AUDIT DATA STRUCTURES EXCLUSIVELY UNDER DEVELOPMENT PROFILES
 
     @GetMapping(value = "/list", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<Map<String, Object>>> getAllUsers() {
@@ -52,7 +56,10 @@ public class UserRegistrationController {
             Map<String, Object> map = new HashMap<>();
             map.put("id", user.getId());
             map.put("name", user.getName() != null ? user.getName() : "Signed-up user");
-            map.put("email", user.getEmail());
+
+            map.put("emailCanonical", user.getEmailCanonical());
+            map.put("emailDispatch", user.getEmailDispatch());
+
             if (user.getSecurity() != null) {
                 map.put("accountNonLocked", user.getSecurity().isAccountNonLocked());
                 map.put("failedAttempts", user.getSecurity().getFailedAttempts());
@@ -66,13 +73,14 @@ public class UserRegistrationController {
         return ResponseEntity.ok(flatUsers);
     }
 
+    // INTERCEPTS ACCOUNT REGISTRATION ENFORCING ANTI BOT VERIFICATION PRIOR TO SUBMITTING DATA TO PIPELINE EVALUATORS
+
     @PostMapping("/register")
     public ResponseEntity<?> userAccountRegister(@Valid @RequestBody UserRegistrationDto userRegistrationDto,
                                                  BindingResult result,
                                                  @RequestHeader(name = "g-recaptcha-response", required = false) String captchaResponse) {
 
         Map<String, Object> response = new HashMap<>();
-
         if (captchaResponse == null || !recaptchaService.validate(captchaResponse)) {
             log.warn("REGISTRATION: CAPTCHA validation failed for incoming request.");
             String msg = messageSource.getMessage("registration.captcha.failed", null, "CAPTCHA verification failed.", LocaleContextHolder.getLocale());
@@ -90,6 +98,8 @@ public class UserRegistrationController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(businessResult);
         }
     }
+
+    // DELEGATES ASYNCHRONOUS DUPLICATE SIGNUP ALERT COMMANDS TO THE BACKING USER CORE SECURITY COMPONENT
 
     public void sendAccountAlreadyExistsAlert(String email) {
         userRegistrationProcessingService.sendAccountAlreadyExistsAlert(email);

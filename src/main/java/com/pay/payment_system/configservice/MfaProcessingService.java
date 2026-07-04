@@ -27,6 +27,8 @@ public class MfaProcessingService {
     private final CacheManager cacheManager;
     private final StringRedisTemplate redisTemplate;
 
+    // VALIDATES SUBMITTED OTP CODES AGAINST ACTIVE SESSION TOKENS AND EXECUTES SECURITY UPGRADES OR LOCKOUT ESCALATIONS
+
     @Transactional
     public String processMfaValidation(String code, Authentication auth, HttpServletRequest request, HttpServletResponse response) {
         if (auth == null) return "REDIRECT_LOGIN";
@@ -42,7 +44,7 @@ public class MfaProcessingService {
             return "REDIRECT_BLOCKED_" + remaining;
         }
 
-        UserAccount userAccount = userRepository.findByEmail(username);
+        UserAccount userAccount = userRepository.findByEmailCanonical(cleanEmail);
         if (userAccount == null || userAccount.getSecurity() == null) return "REDIRECT_LOGIN";
 
         if (userAccount.getSecurity().isBlocked()) {
@@ -76,7 +78,7 @@ public class MfaProcessingService {
             if (cacheManager.getCache("users_security") != null) {
                 cacheManager.getCache("users_security").evict(username);
             }
-            ipService.registerAccessAttempt(username, "SUCCESSFUL", null, request);
+            ipService.registerAccessAttempt(userAccount, "SUCCESSFUL", null, request);
             mfaSecurityContextService.upgradeToFullAuthentication(auth, userAccount, request, response);
             return "REDIRECT_INDEX";
         }
@@ -86,6 +88,8 @@ public class MfaProcessingService {
             return triggerLockoutIncrement(cleanEmail, session, "REDIRECT_REMAINING_");
         }
     }
+
+    // INCREMENTS MULTI-FACTOR ATTEMPTS IN CACHE AND ENFORCES PROGRESSIVE TEMPORARY LOCKOUTS ON VIOLATION THRESHOLDS
 
     private String triggerLockoutIncrement(String cleanEmail, HttpSession session, String baseStatus) {
         String attemptsKey = "otp:attempts:" + cleanEmail;
@@ -126,6 +130,8 @@ public class MfaProcessingService {
         return "REDIRECT_REMAINING_" + (remainingAttempts < 0 ? 0 : remainingAttempts);
     }
 
+    // EVALUATES RATE LIMITS, GENERATES A REFRESHED OTP CRYPTO TOKEN, AND DISPATCHES IT TO THE AUTHENTICATED USER
+
     @Transactional
     public String processMfaResend(Authentication auth, HttpServletRequest request, HttpServletResponse response) {
         if (auth == null) return "RESEND_UNAUTHORIZED";
@@ -151,10 +157,10 @@ public class MfaProcessingService {
             return triggerLockoutIncrement(cleanEmail, session, "REDIRECT_BLOCKED_");
         }
 
-        UserAccount userAccount = userRepository.findByEmail(username);
+        UserAccount userAccount = userRepository.findByEmailCanonical(cleanEmail);
         if (userAccount == null || session == null) return "RESEND_UNAUTHORIZED";
 
-        String newCryptoToken = userSecurityService.generateAndSendOtp(userAccount.getId(), userAccount.getEmail());
+        String newCryptoToken = userSecurityService.generateAndSendOtp(userAccount.getId(), userAccount.getEmailCanonical());
         if (newCryptoToken == null) return "RESEND_UNAUTHORIZED";
 
         session.setAttribute("OTP_CRYPTO_TOKEN", newCryptoToken);

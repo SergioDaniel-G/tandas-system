@@ -16,6 +16,8 @@ public class CorsConfig {
 
     private final Environment env;
 
+    // CONFIGURES THE CROSS-ORIGIN RESOURCE SHARING (CORS) POLICIES FOR ALL INCOMING HTTP ENDPOINTS
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -43,9 +45,13 @@ public class CorsConfig {
                 "g-recaptcha-response"
         ));
 
+        // EXPOSES AUTHENTICATION HEADERS AND ENABLES COOKIE CREDENTIALS TRANSMISSION WITH PREFLIGHT CACHING
+
         configuration.setExposedHeaders(List.of("Authorization", "Set-Cookie"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
+
+        // REGISTERS THE DEFINED CORS POLICIES ACROSS ALL INCOMING URL PATH PATTERNS
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

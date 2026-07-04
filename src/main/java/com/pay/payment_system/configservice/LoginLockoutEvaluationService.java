@@ -27,13 +27,15 @@ public class LoginLockoutEvaluationService {
 
     public record LockoutResult(int currentAttempts, boolean dynamicLockTriggered, long lockoutMinutes, int lockoutCount) {}
 
-    public LockoutResult registerFailedAttempt(String email) {
+    // TRACKS AND INCREMENTS FAILED LOGIN ATTEMPTS IN REDIS, ENFORCING LOCKOUT RULES UPON REACHING SECURITY THRESHOLDS
 
-        if (email == null || email.trim().isEmpty()) {
+    public LockoutResult registerFailedAttempt(String canonicalEmail) {
+
+        if (canonicalEmail == null || canonicalEmail.trim().isEmpty()) {
             return new LockoutResult(0, false, 0, 0);
         }
 
-        String cleanEmail = email.trim().toLowerCase();
+        String cleanEmail = canonicalEmail.trim().toLowerCase();
         String attemptsKey = ATTEMPTS_KEY_PREFIX + cleanEmail;
         String lockKey = LOCK_KEY_PREFIX + cleanEmail;
 
@@ -52,6 +54,8 @@ public class LoginLockoutEvaluationService {
 
         return new LockoutResult(currentCount, false, 0, 0);
     }
+
+    // HANDLES LOCKOUT ACTIVATION, ESCALATING REINCIDENCES TO PERMANENT BLOCKING IF THE PRESCRIBED MAX LIMIT IS EXCEEDED
 
     private LockoutResult triggerLockout(String cleanEmail, String lockKey, String attemptsKey) {
         int lockReincidenceCount = incrementAndGetTemporaryLockCount(cleanEmail);
@@ -72,6 +76,8 @@ public class LoginLockoutEvaluationService {
         return new LockoutResult(MAX_LOGIN_ATTEMPTS, true, dynamicDurationMinutes, lockReincidenceCount);
     }
 
+    // PROCESSES ADDITIONAL ATHENTICATION ATTEMPTS WHILE THE ACCOUNT STATUS IS CURRENTLY ACTIVE UNDER REDIS LOCKOUT
+
     private LockoutResult handleAttemptWhileLocked(String cleanEmail, String lockKey) {
         String lockStatus = redisTemplate.opsForValue().get(lockKey);
 
@@ -85,20 +91,24 @@ public class LoginLockoutEvaluationService {
         return new LockoutResult(MAX_LOGIN_ATTEMPTS, true, remainingMinutes, getTemporaryLockCount(cleanEmail));
     }
 
+    // HARDENS ACCOUNT STATUS AND DISABLES ACTIVE FLAGS DIRECTLY IN THE DATABASE ENFORCING CRITICAL HARD LOCKS
+
     @Transactional
-    private void executePermanentDatabaseLock(String email) {
+    private void executePermanentDatabaseLock(String canonicalEmail) {
         try {
-            UserAccount user = userRepository.findByEmail(email);
+            UserAccount user = userRepository.findByEmailCanonical(canonicalEmail);
             if (user != null && user.getSecurity() != null) {
                 UserSecurity security = user.getSecurity();
                 security.setAccountNonLocked(false);
                 userRepository.save(user);
-                log.error("CRITICAL SECURITY HARDENING: User {} permanently locked in MySQL.",safe (email));
+                log.error("CRITICAL SECURITY HARDENING: User {} permanently locked in MySQL.",safe (canonicalEmail));
             }
         } catch (Exception e) {
             log.error("CRITICAL ERROR: Failed to execute permanent DB lock. Message: {}", safe(e.getMessage()));
         }
     }
+
+    // CALCULATES DYNAMIC TEMPORARY COOL DOWN DURATIONS ACCORDING TO THE RECORDED LOCKOUT REINCIDENCE COUNTER
 
     private long calculateDynamicLockoutTime(int lockCount) {
         return switch (lockCount) {
@@ -116,6 +126,8 @@ public class LoginLockoutEvaluationService {
         return val != null ? Integer.parseInt(val) : 0;
     }
 
+    // INCREMENTS REINCIDENCE TRACKING RECORDS IN CACHE AND SETS AN EXPIRATION WINDOW OF 24 HOURS ON INITIAL TRACKING
+
     public int incrementAndGetTemporaryLockCount(String email) {
         String key = "lock_count:" + email.trim().toLowerCase();
         Long count = redisTemplate.opsForValue().increment(key);
@@ -125,11 +137,15 @@ public class LoginLockoutEvaluationService {
         return count != null ? count.intValue() : 0;
     }
 
+    // EVALUATES WHETHER A CACHE LOCKOUT RECORD IS CURRENTLY INSTANTIATED AND ACTIVE FOR THE PROVIDED USER EMAIL
+
     public boolean isAccountLocked(String email, Exception exception) {
         if (email == null || email.isBlank()) return false;
         String cleanEmail = email.trim().toLowerCase();
         return Boolean.TRUE.equals(redisTemplate.hasKey(LOCK_KEY_PREFIX + cleanEmail));
     }
+
+    // EVAPORATES ALL ACTIVE LOGIN COUNTERS, TEMPORARY LOCKS, AND REINCIDENCE METRICS ASSIGNED TO A CLEANSURED EMAIL
 
     public void resetAttempts(String email) {
         if (email == null) return;
@@ -139,9 +155,13 @@ public class LoginLockoutEvaluationService {
         resetTemporaryLockCount(cleanEmail);
     }
 
+    // FLUSHES RETRIEVABLE REINCIDENCE AND LOCK COUNTER RECORDS STORED IN CACHE STORAGE FOR THE SPECIFIC TARGET EMAIL
+
     public void resetTemporaryLockCount(String email) {
         redisTemplate.delete("lock_count:" + email.trim().toLowerCase());
     }
+
+    // QUERIES THE REMAINING TIME IN SECONDS UNTIL THE LOCKOUT ENTRY AUTOMATICALLY EXPIRES FROM REDIS
 
     public long getRemainingLockoutTimeInSeconds(String email) {
         if (email == null || email.trim().isEmpty()) return 0;

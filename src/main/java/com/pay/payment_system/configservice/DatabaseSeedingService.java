@@ -21,9 +21,14 @@ public class DatabaseSeedingService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
+    // VALIDATES, INITIALIZES, AND SEEDS DEFAULT SYSTEM ROLES AND ADMIN ACCOUNT IF NOT YET PRESENT IN THE DATABASE
+
     @Transactional
     public void seedDefaultAdminAndRoles(String adminEmail, String adminPassword, String adminName, String adminSurname, String adminMobile) {
 
+        if (adminPassword == null || adminPassword.trim().length() < 12 || adminPassword.trim().length() > 24) {
+            throw new IllegalArgumentException("CRITICAL: Default Admin password in properties must be between 12 and 24 characters!");
+        }
 
         String normalizedAdminEmail = adminEmail.toLowerCase().trim();
         Role adminRole = roleRepository.findByName("ROLE_ADMIN")
@@ -32,12 +37,13 @@ public class DatabaseSeedingService {
         roleRepository.findByName("ROLE_USER")
                 .orElseGet(() -> roleRepository.save(new Role("ROLE_USER")));
 
-        if (userRepository.findByEmail(normalizedAdminEmail) == null) {
+        if (userRepository.findByEmailCanonical(normalizedAdminEmail) == null) {
 
             UserAccount admin = UserAccount.builder()
                     .name(adminName)
                     .lastname(adminSurname)
-                    .email(normalizedAdminEmail)
+                    .emailCanonical(normalizedAdminEmail)
+                    .emailDispatch(adminEmail)
                     .password(passwordEncoder.encode(adminPassword))
                     .mobileNumber(adminMobile)
                     .roles(Collections.singleton(adminRole))

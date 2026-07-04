@@ -25,11 +25,13 @@ public class PasswordRecoveryService {
     private final PasswordEncoder passwordEncoder;
     private final MessageSource messageSource;
 
+    // VALIDATES CREDENTIAL MATCHES TO GENERATE A SECURE PASSWORD RESET TOKEN WITHOUT EXPOSING ACCOUNT EXISTENCE STATUS
+
     @Transactional
     public Map<String, Object> processForgotPassword(String email, String mobileNum) {
         log.info("PASSWORD RECOVERY: Attempt initiated for email: {}", safe (email));
 
-        UserAccount userAccount = userRepository.findByEmailAndMobileNumber(email, mobileNum);
+        UserAccount userAccount = userRepository.findByEmailCanonicalAndMobileNumber(email, mobileNum);
         Map<String, Object> response = new HashMap<>();
 
         String genericMsg = messageSource.getMessage(
@@ -65,6 +67,8 @@ public class PasswordRecoveryService {
         return response;
     }
 
+    // VERIFIES COMPLIANCE BETWEEN SUBMITTED PASSWORDS AND CONSUMES THE INSTANTIATED RESET TOKEN UPON SUCCESSFUL RE-ENCRYPTION
+
     @Transactional
     public Map<String, Object> processResetPassword(String password, String cpassword, String token) {
         Map<String, Object> response = new HashMap<>();
@@ -92,7 +96,7 @@ public class PasswordRecoveryService {
 
             userRepository.save(userAccount);
 
-            log.info("PASSWORD CHANGE SUCCESS for user: {}", safe (userAccount.getEmail()));
+            log.info("PASSWORD CHANGE SUCCESS for user: {}", safe (userAccount.getEmailCanonical()));
             String successMsg = messageSource.getMessage(
                     "password.change.success", null, "¡Password changed successfully.!", LocaleContextHolder.getLocale());
 

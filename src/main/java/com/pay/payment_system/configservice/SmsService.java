@@ -33,9 +33,8 @@ public class SmsService {
     @Qualifier("mailTaskExecutor")
     private final Executor mailTaskExecutor;
 
-    /**
-     * VALIDATES CONFIGURATION ON STARTUP AND INITIALIZES THE TWILIO SDK.
-     */
+    //VALIDATES CONFIGURATION ON STARTUP AND INITIALIZES THE TWILIO SDK.
+
     @PostConstruct
     public void initTwilio() {
         if (accountSid == null || accountSid.isBlank() ||
@@ -50,9 +49,8 @@ public class SmsService {
         log.info("TWILIO SDK: Initialized successfully with Account SID.");
     }
 
-    /**
-     * SENDS AN OUTBOUND SMS ALERT.
-     */
+    //SENDS AN OUTBOUND SMS ALERT.
+
     public void sendSmsAlert(String textMessage) {
 
         CompletableFuture.runAsync(() -> {

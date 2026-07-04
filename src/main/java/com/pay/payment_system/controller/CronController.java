@@ -23,6 +23,8 @@ public class CronController {
     @Value("${cron.secret.token}")
     private String secretToken;
 
+    // VALIDATES SYSTEM CRON HEADER TOKENS BEFORE TRIGGERING ASYNCHRONOUS MONTHLY BATCH PROCESSING AND NOTIFICATION ALERTS
+
     @PostMapping("/verify-payments")
     public ResponseEntity<String> triggerMonthlyPayments(
             @RequestHeader(value = "X-Cron-Token", required = false) String token) {

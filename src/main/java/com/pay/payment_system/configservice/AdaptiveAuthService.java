@@ -33,6 +33,8 @@ public class AdaptiveAuthService {
     private final HttpSessionSecurityContextRepository securityContextRepository =
             new HttpSessionSecurityContextRepository();
 
+    // EVALUATES SECURITY RISKS AND TRIGGERS INTERMEDIATE MFA CHALLENGES ACCORDING TO DEVICE AND IP REPUTATION
+
     @Transactional
     public String processAdaptiveLogin(HttpServletRequest request,
                                        HttpServletResponse response,
@@ -50,7 +52,7 @@ public class AdaptiveAuthService {
         }
 
         String ip = request.getRemoteAddr();
-        boolean isKnownDevice = ipService.isIpKnown(email, ip);
+        boolean isKnownDevice = ipService.isIpKnown(userAccount, ip);
 
         if (isKnownDevice) {
             log.info("ADAPTIVE AUTH: KNOWN IP DETECTED ({}) FOR USER {}. BYPASSING MFA.",safe (ip), safe (email));
@@ -74,14 +76,14 @@ public class AdaptiveAuthService {
 
             securityContextRepository.saveContext(context, request, response);
 
-            ipService.registerAccessAttempt(email, "SUCCESSFUL", "Automatic access via known IP", request);
+            ipService.registerAccessAttempt(userAccount, "SUCCESSFUL", "Automatic access via known IP", request);
             return "KNOWN_DEVICE";
 
         } else {
 
             log.warn("ADAPTIVE AUTH: UNKNOWN OR NEW IP DETECTED ({}) FOR USER {}. INITIATING MFA CHALLENGE.",safe (ip), safe (email));
 
-            ipService.registerAccessAttempt(email, "INITIAL_LOGIN", "Step 1: Correct credentials", request);
+            ipService.registerAccessAttempt(userAccount, "INITIAL_LOGIN", "Step 1: Correct credentials", request);
 
             String cryptoToken = userSecurityService.generateAndSendOtp(userAccount.getId(), email);
 

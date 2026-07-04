@@ -20,11 +20,15 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
+    // RETRIEVES A COMPLETE TRANSACTIONAL LEDGER CONTAINING ALL SYSTEM PAYMENTS UNDER DEVELOPMENT PROFILES
+
     @GetMapping
     public List<Payment> getTable() {
         log.info("Fetching all payments");
         return paymentService.findAllPayments();
     }
+
+    // QUERIES THE DATA LAYER FOR A SINGLE PAYMENT TRANSACTION FILTERED BY UNIQUE DATABASE ID KEY
 
     @GetMapping("/{id}")
     public ResponseEntity<Payment> getById(@PathVariable Long id) {
@@ -36,6 +40,8 @@ public class PaymentController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    // SANITIZES INPUT AND DISPATCHES PAYLOADS TO THE BUSINESS PIPELINE FOR NEW PAYMENT TRANSACTION INGESTION
 
     @PostMapping("/create")
     public ResponseEntity<?> create(@Valid @RequestBody Payment request) {
@@ -56,6 +62,8 @@ public class PaymentController {
             return ResponseEntity.badRequest().body("An error occurred while processing the payment.");
         }
     }
+
+    // PROCESSES SECURE STATE MUTATIONS AND OVERWRITES TRANSACTIONAL FIELDS FOR REQUISITE PAYMENT IDENTIFIERS
 
     @PutMapping("/{id}")
     public ResponseEntity<?> updatePayment(
@@ -79,6 +87,8 @@ public class PaymentController {
         }
     }
 
+    // EXECUTES PERSISTENCE PURGES TO ABSOLUTELY REMOVE THE TARGET PAYMENT RESOURCE FROM LEDGER CHANNELS
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         try {
@@ -94,6 +104,8 @@ public class PaymentController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    // COMMUTES TRANSACTION STATUS STATE MACHINERY FLIPING BETWEEN UNPAID AND COMPLETED AUDIT DOMAINS
 
     @PutMapping("/{id}/toggle")
     public ResponseEntity<Payment> toggle(@PathVariable Long id) {

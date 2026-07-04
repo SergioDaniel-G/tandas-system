@@ -11,6 +11,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.BindingResult;
 import java.util.HashMap;
@@ -26,15 +27,22 @@ public class UserRegistrationProcessingService {
     private final UserService userService;
     private final JavaMailSender mailSender;
     private final MessageSource messageSource;
+    private final PasswordEncoder passwordEncoder;
 
     @Qualifier("mailTaskExecutor")
     private final Executor mailTaskExecutor;
 
+    // EVALUATES REGISTRATION DATA, NORMALIZES INPUTS, VALIDATES FIELD ERRORS, AND MASKS RESIDUAL DUPLICATIONS FOR ENHANCED PRIVACY
+
     public Map<String, Object> processUserRegistration(UserRegistrationDto userRegistrationDto, BindingResult result) {
         Map<String, Object> response = new HashMap<>();
 
+        if (userRegistrationDto != null) {
+            userRegistrationDto.normalizeData();
+        }
+
         if (result.hasErrors()) {
-            log.warn("REGISTRATION: Binding result contains validation errors.");
+            log.warn("REGISTRATION: the result contains validation errors.");
 
             StringBuilder compiledMessage = new StringBuilder("Please correct the following fields:\n");
             for (org.springframework.validation.FieldError err : result.getFieldErrors()) {
@@ -54,22 +62,24 @@ public class UserRegistrationProcessingService {
             return response;
         }
 
-        UserAccount accountExist = userService.findByEmail(userRegistrationDto.getEmail());
+        String canonicalEmail = userRegistrationDto.getCanonicalEmailForUniqueness();
+
+        UserAccount accountExist = userService.findByCanonicalEmail(canonicalEmail);
 
         if (accountExist != null) {
-            log.info("REGISTRATION: Email '{}' already exists.", safe (userRegistrationDto.getEmail()));
+            log.info("REGISTRATION: Canonical Email '{}' already exists. Masking response for security.", safe(canonicalEmail));
+
+            passwordEncoder.encode(userRegistrationDto.getPassword());
 
             sendAccountAlreadyExistsAlert(userRegistrationDto.getEmail());
 
-            String msg = messageSource.getMessage("registration.email.exists", null, "We have sent you an email with instructions.", LocaleContextHolder.getLocale());
-
-            response.put("status", "error");
-            response.put("message", msg);
-            response.put("httpStatus", "BAD_REQUEST");
+            response.put("status", "success");
+            response.put("message", "User registered successfully!");
+            response.put("httpStatus", "CREATED");
             return response;
         }
 
-        userService.save(userRegistrationDto);
+        userService.save(userRegistrationDto, canonicalEmail);
         log.info("REGISTRATION SUCCESS: New user registered with email: {}", safe (userRegistrationDto.getEmail()));
 
         response.put("status", "success");
@@ -77,6 +87,8 @@ public class UserRegistrationProcessingService {
         response.put("httpStatus", "CREATED");
         return response;
     }
+
+    // DISPATCHES AN ASYNCHRONOUS OUTBOUND SECURITY ALERT NOTIFICATION WHEN A DUPLICATE ENTRY IS DETECTED ON SYSTEM CHANNELS
 
     public void sendAccountAlreadyExistsAlert(String email) {
 

@@ -10,6 +10,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+ // HANDLES CORE BUSINESS LOGIC, TRANSACTION BOUNDARIES, AND VALIDATION FOR PAYMENTS
+
 @Service
 @RequiredArgsConstructor
 public class PaymentService {

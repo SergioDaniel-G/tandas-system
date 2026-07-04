@@ -21,6 +21,8 @@ public class MfaSecurityContextService {
     private final SecurityContextRepository securityContextRepository =
             new HttpSessionSecurityContextRepository();
 
+    // UPGRADES PRE-AUTHENTICATED MFA TOKENS TO FULLY AUTHORIZED SECURITY CONTEXTS MAPING ACTUAL DATABASE SYSTEM ROLES
+
     public void upgradeToFullAuthentication(Authentication auth, UserAccount userAccount, HttpServletRequest request, HttpServletResponse response) {
 
         var realAuthorities = userAccount.getRoles()

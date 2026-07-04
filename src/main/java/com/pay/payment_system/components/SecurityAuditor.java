@@ -9,6 +9,8 @@ import java.util.Optional;
 @Component("auditorProvider")
 public class SecurityAuditor implements AuditorAware<String> {
 
+    // RESOLVES THE IDENTITY OF THE CURRENT LOGGED-IN OPERATOR OR PROCESS FOR DATA AUDITING PURPOSES
+
     @Override
     public Optional<String> getCurrentAuditor() {
 

@@ -13,6 +13,8 @@ public class RestClientConfig {
     public RestTemplate restTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
 
+        // CONFIGURES THE MAXIMUM ALLOWED DURATION FOR ESTABLISHING CONNECTIONS AND READING STREAM DATA
+
         factory.setConnectTimeout((int) Duration.ofSeconds(5).toMillis());
         factory.setReadTimeout((int) Duration.ofSeconds(5).toMillis());
 

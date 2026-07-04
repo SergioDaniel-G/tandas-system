@@ -11,5 +11,6 @@ import java.util.List;
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     // FETCHES PAYMENTS FILTERED BY SPECIFIC DATE AND STATUS (PAID/UNPAID)
+
     List<Payment> findByDateAndStatus(LocalDate date, PaymentStatus status);
 }

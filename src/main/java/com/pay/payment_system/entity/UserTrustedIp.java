@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "user_trusted_ips", indexes = {
-        @Index(name = "idx_user_email_ip", columnList = "email, ip_address")
+        @Index(name = "idx_user_id_ip", columnList = "user_id, ip_address")
 })
 @Getter
 @Setter
@@ -19,8 +19,9 @@ public class UserTrustedIp {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String email;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private UserAccount user;
 
     @Column(nullable = false, name = "ip_address")
     private String ipAddress;

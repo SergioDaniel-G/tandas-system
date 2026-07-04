@@ -28,9 +28,11 @@ public class UserSecurityService {
     @Value("${app.security.mfa-secret}")
     private String secretKey;
 
+    // RESETS FAILED LOGIN TRACKERS AND UPDATES USER METADATA TIMESTAMP UPON SUCCESSFUL SYSTEM AUTHENTICATION
+
     @Transactional
     public UserAccount handleSuccessfulLogin(String email) {
-        UserAccount user = userRepository.findByEmail(email);
+        UserAccount user = userRepository.findByEmailCanonical(email);
         if (user != null && user.getSecurity() != null) {
             UserSecurity security = user.getSecurity();
             if (security.getFailedAttempts() > 0) {
@@ -42,6 +44,8 @@ public class UserSecurityService {
         }
         return user;
     }
+
+    // INCREMENTS ACCOUNT FAILURE METRICS INDEPENDENTLY WHILE ASSURING ACTIVE LOCKOUT SANITY CONTROLS ARE NOT VIOLATED
 
     @Transactional
     public UserSecurity handleFailedLoginAttempt(UserAccount user, String email) {
@@ -60,6 +64,8 @@ public class UserSecurityService {
         return security;
     }
 
+    // GENERATES A CRYPTOGRAPHICALLY SECURE MULTI-FACTOR TOKEN DISPATCHES REQUISITE EMAIL AND COMPUTES TIME WINDOW SIGNATURES
+
     public String generateAndSendOtp(Long userId, String email) {
         int codeInt = 100000 + secureRandom.nextInt(900000);
         String otp = String.valueOf(codeInt);
@@ -71,6 +77,8 @@ public class UserSecurityService {
         String hash = generateHash(userId, otp, expiryTime);
         return hash + "." + expiryTime;
     }
+
+    // EVALUATES CRYPTOGRAPHIC TIME BOUND SIGNATURES AND COMPARES USER OVER THE AIR INPUTS VIA CONSTANT TIME VERIFICATION
 
     @Transactional
     public boolean validateOtp(UserAccount userAccount, String inputOtp, String cryptoToken) {
@@ -95,10 +103,10 @@ public class UserSecurityService {
             );
 
             if (isHashValid) {
-                log.info("MFA SUCCESSFUL: OTP validated for user: {}", safe (userAccount.getEmail()));
+                log.info("MFA SUCCESSFUL: OTP validated for user: {}", safe (userAccount.getEmailCanonical()));
                 return true;
             } else {
-                log.warn("MFA FAILURE: Invalid OTP code entered for user: {}", safe (userAccount.getEmail()));
+                log.warn("MFA FAILURE: Invalid OTP code entered for user: {}", safe (userAccount.getEmailCanonical()));
                 return false;
             }
 
@@ -111,6 +119,8 @@ public class UserSecurityService {
             throw new RuntimeException("MFA_ERROR: Token externally altered or invalid.");
         }
     }
+
+    // COMPUTES A ONE WAY SHA256 MESSAGE DIGEST INTEGRATING BOUND METADATA AND SHARED SYSTEM KEYS FOR HIGH ENTROPY SIGNING
 
     private String generateHash(Long userId, String otp, long expiryTime) {
         try {

@@ -5,6 +5,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class RequestDeviceParser {
 
+    // ANALYZES THE USER-AGENT HEADER TO DETECT POTENTIAL BOTS, AUTOMATED SCRIPTS, OR HTTP CLIENTS
+
     public boolean detectBot(String userAgent) {
         if (userAgent == null) return true;
         String uaLower = userAgent.toLowerCase();
@@ -14,6 +16,8 @@ public class RequestDeviceParser {
                 uaLower.contains("postman") ||
                 uaLower.contains("httpclient");
     }
+
+    // DETERMINES THE HARDWARE DEVICE CATEGORY BASED ON THE CHARACTERISTICS OF THE USER-AGENT STRING
 
     public String determineDeviceType(String userAgent) {
         if (userAgent == null) return "PC";

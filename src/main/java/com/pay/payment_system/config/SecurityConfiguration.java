@@ -64,6 +64,8 @@ public class SecurityConfiguration {
         return providerManager;
     }
 
+    // DISABLES TOMCAT AUTOMATIC INJECTION FOR THE RATE LIMITING FILTER IN ORDER TO DEFINE ITS POSITION MANUALLY IN THE CHAIN
+
     @Bean
     public FilterRegistrationBean<RateLimitingFilter> registration(RateLimitingFilter filter) {
         FilterRegistrationBean<RateLimitingFilter> registration = new FilterRegistrationBean<>(filter);
@@ -78,16 +80,16 @@ public class SecurityConfiguration {
 
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/login", "/login.html","/api/users/register"))
                 .authenticationManager(authManager)
                 .authorizeHttpRequests(authorize -> authorize
 
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/css/**", "/js/**", "/img/**").permitAll()
+                        .requestMatchers("/css/**", "/js/**", "/static/**").permitAll()
                         .requestMatchers("/login", "/login.html", "/register", "/register.html", "/error").permitAll()
                         .requestMatchers("/forgot_password.html", "/reset_password.html").permitAll()
                         .requestMatchers("/api/users/register", "/api/users/recaptcha-key", "/api/register", "/api/config/**").permitAll()
-                        .requestMatchers("/api/cron/**").permitAll()
+                       .requestMatchers("/api/cron/**").permitAll()
                         .requestMatchers("/loadForgotPassword", "/loadForgotPassword/**", "/forgotPassword").permitAll()
                         .requestMatchers("/loadResetPassword/**", "/changePassword/**").permitAll()
 
@@ -95,9 +97,16 @@ public class SecurityConfiguration {
                         .requestMatchers("/api/users/is-admin").authenticated()
                         .requestMatchers("/api/users/list").hasRole("ADMIN")
 
+                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
+
+                        .requestMatchers("/register").permitAll()
+
                         .requestMatchers("/verify-code", "/mfa-page.html", "/auth/validate-otp").hasRole("PRE_VERIFIED")
                         .anyRequest().authenticated()
                 )
+
+                // MANAGES UNAUTHORIZED EXCEPTIONS AND SEGREGATES ACCESS DENIED HANDLERS BY CONTEXT (REST APIS VS PAGES)
 
                 .exceptionHandling(exception -> exception
 
@@ -111,7 +120,7 @@ public class SecurityConfiguration {
                                 (request, response, authException) -> {
                                     response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
                                     response.setContentType("application/json");
-                                    response.getWriter().write("{\"status\":\"UNAUTHORIZED\",\"message\":\"Tu sesión intermedia de MFA no existe o expiró. Por favor vuelve a loguearte.\"}");
+                                    response.getWriter().write("{\"status\":\"UNAUTHORIZED\",\"message\":\"Your intermediate MFA session does not exist or has expired. Please log in again.\"}");
                                 },
                                 new AntPathRequestMatcher("/auth/**")
                         )
@@ -151,6 +160,8 @@ public class SecurityConfiguration {
                         .permitAll()
                 )
 
+                // ENFORCES CONCURRENT SESSION MITIGATION LIMITS AND APPLIES SESSION FIXATION PROTECTION POLICIES
+
                 .sessionManagement(session -> session
                         .sessionFixation().migrateSession()
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
@@ -175,6 +186,8 @@ public class SecurityConfiguration {
                     .anyRequest().requiresSecure()
             );
         }
+
+        // ASSEMBLES WEB INTEGRITY SECURITY HEADERS INCLUDING ANTI-CACHE, FRAMES CONTROLS, CSP, AND HSTS
 
         http.headers(headers -> {
             headers.cacheControl(cache -> cache.disable());
@@ -214,6 +227,8 @@ public class SecurityConfiguration {
                 }
             });
         });
+
+        // ENFORCES THE RATE LIMIT FILTER IMMEDIATELY BEFORE EXECUTING AUTHENTICATION VERIFICATION CHECKS
 
         http.addFilterBefore(rateLimitingFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
 

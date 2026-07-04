@@ -32,6 +32,8 @@ public class BotFilter implements Filter {
         this.requestDeviceParser = requestDeviceParser;
     }
 
+    //INTERCEPTS AND PROCESSES EVERY INCOMING HTTP REQUEST TO THE SERVER
+
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
@@ -77,6 +79,8 @@ public class BotFilter implements Filter {
 
         chain.doFilter(request, response);
     }
+
+    //CONTROLS AND LIMITS THE FREQUENCY OF IP LOCKOUT LOG WRITING
 
     private boolean tryConsumeLogToken(String ip) {
         return logThrottlingBuckets.computeIfAbsent(ip, key ->

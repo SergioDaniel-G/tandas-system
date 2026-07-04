@@ -34,6 +34,8 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     private final LoginLockoutEvaluationService lockoutEvaluationService;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
 
+    // HANDLES SUCCESSFUL AUTHENTICATION EVENTS AND EVALUATES ACCOUNT STATUS AND SECURITY CONTROLS
+
     @Override
     @Transactional
     public void onAuthenticationSuccess(HttpServletRequest request,
@@ -42,7 +44,7 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             throws IOException, ServletException {
 
         String email =  authentication.getName();
-        UserAccount userAccount = userRepository.findByEmail(email);
+        UserAccount userAccount = userRepository.findByEmailCanonical(email);
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");

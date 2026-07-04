@@ -15,9 +15,9 @@ public class MfaEmailService {
 
     private final JavaMailSender mailSender;
 
-    /**
-     * SENDS A SIX-DIGIT OTP CODE TO THE USER'S EMAIL ASYNCHRONOUSLY.
-     */
+
+    // SENDS A SIX-DIGIT OTP CODE TO THE USER'S EMAIL ASYNCHRONOUSLY.
+
     @Async("mailTaskExecutor")
     public void sendOtpEmailAsync(String email, String code) {
 

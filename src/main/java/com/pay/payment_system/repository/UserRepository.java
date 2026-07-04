@@ -4,31 +4,40 @@ import com.pay.payment_system.entity.UserAccount;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.Optional;
 
 @Repository
 public interface UserRepository extends JpaRepository<UserAccount, Long> {
 
-    @Cacheable(value = "users_security", key = "#email")
+    // CACHES AND RETRIEVES A USER BY CANONICAL EMAIL WITH EAGER LOADING OF ROLES AND SECURITY DATA
+
+    @Cacheable(value = "users_security", key = "#emailCanonical")
     @Query("SELECT u FROM UserAccount u " +
             "LEFT JOIN FETCH u.roles " +
             "LEFT JOIN FETCH u.security " +
-            "WHERE u.email = :email")
-    Optional<UserAccount> findByEmailWithSecurityAndRoles(@Param("email") String email);
+            "WHERE u.emailCanonical = :emailCanonical")
+    Optional<UserAccount> findByEmailCanonicalWithSecurityAndRoles(@Param("emailCanonical") String emailCanonical);
 
-    UserAccount findByEmail(@Param("email") String email);
+    UserAccount findByEmailCanonical(String emailCanonical);
 
-    @CacheEvict(value = "users_security", key = "#email")
-    @org.springframework.data.jpa.repository.Modifying
-    @org.springframework.transaction.annotation.Transactional
-    @org.springframework.data.jpa.repository.Query("UPDATE UserSecurity s SET s.failedAttempts = :attempts " +
-            "WHERE s.user.id = (SELECT u.id FROM UserAccount u WHERE u.email = :email)")
-    void updateFailedAttemptsDirectly(@Param("email") String email, @Param("attempts") int attempts);
+    // EVICTS THE SECURITY CACHE AND DIRECTLY UPDATES FAILED LOGIN ATTEMPTS FOR A USER
 
-    UserAccount findByEmailAndMobileNumber(String email, String mobileNum);
+    @CacheEvict(value = "users_security", key = "#emailCanonical")
+    @Modifying
+    @Transactional
+    @Query("UPDATE UserSecurity s SET s.failedAttempts = :attempts " +
+            "WHERE s.user.id = (SELECT u.id FROM UserAccount u WHERE u.emailCanonical = :emailCanonical)")
+    void updateFailedAttemptsDirectly(@Param("emailCanonical") String emailCanonical, @Param("attempts") int attempts);
+
+    UserAccount findByEmailCanonicalAndMobileNumber(String emailCanonical, String mobileNumber);
     UserAccount findBySecurityResetToken(String token);
+
+    boolean existsByMobileNumber(String mobileNumber);
 
 }

@@ -6,6 +6,10 @@ import org.springframework.boot.web.servlet.error.ErrorController;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+/* GLOBAL CUSTOM ERROR CONTROLLER
+ * INTERCEPTS AND FORWARDS HTTP ERROR STATUS CODES TO SPECIFIC HTML VIEWS
+ */
+
 @Controller
 public class CustomErrorController implements ErrorController {
 

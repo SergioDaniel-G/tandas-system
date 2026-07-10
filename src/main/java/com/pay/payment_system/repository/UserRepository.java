@@ -35,9 +35,18 @@ public interface UserRepository extends JpaRepository<UserAccount, Long> {
             "WHERE s.user.id = (SELECT u.id FROM UserAccount u WHERE u.emailCanonical = :emailCanonical)")
     void updateFailedAttemptsDirectly(@Param("emailCanonical") String emailCanonical, @Param("attempts") int attempts);
 
-    UserAccount findByEmailCanonicalAndMobileNumber(String emailCanonical, String mobileNumber);
+    @Query("SELECT u FROM UserAccount u WHERE u.emailCanonical = :emailCanonical AND u.mobileNumber = :mobileNumber")
+    UserAccount findByEmailCanonicalAndMobileNumber(@Param("emailCanonical") String emailCanonical, @Param("mobileNumber") String mobileNumber);
+
     UserAccount findBySecurityResetToken(String token);
 
     boolean existsByMobileNumber(String mobileNumber);
 
+    @CacheEvict(value = "users_security", key = "#emailCanonical")
+    @Modifying
+    @Transactional
+    @Query("UPDATE UserAccount u SET u.password = :encodedPassword WHERE u.emailCanonical = :emailCanonical")
+    void updatePasswordAndEvictCache(@Param("emailCanonical") String emailCanonical, @Param("encodedPassword") String encodedPassword);
+
+    Optional<UserAccount> findByMobileNumber(String mobileNumber);
 }

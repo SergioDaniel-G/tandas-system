@@ -80,7 +80,7 @@ public class SecurityConfiguration {
 
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/login", "/login.html","/api/users/register"))
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/login","/login.html","/api/users/register","/forgotPassword","/changePassword","/auth/validate-otp","/api/**"))
                 .authenticationManager(authManager)
                 .authorizeHttpRequests(authorize -> authorize
 
@@ -101,8 +101,8 @@ public class SecurityConfiguration {
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
 
                         .requestMatchers("/register").permitAll()
-
-                        .requestMatchers("/verify-code", "/mfa-page.html", "/auth/validate-otp").hasRole("PRE_VERIFIED")
+                        .requestMatchers("/auth/validate-otp").permitAll()
+                        .requestMatchers("/verify-code", "/mfa-page.html").hasRole("PRE_VERIFIED")
                         .anyRequest().authenticated()
                 )
 
@@ -135,18 +135,10 @@ public class SecurityConfiguration {
                         )
 
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            String uri = request.getRequestURI();
-
-                            if (uri.startsWith("/api/") || uri.startsWith("/users/")) {
-                                response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
-                                response.setContentType("application/json");
-                                response.setCharacterEncoding("UTF-8");
-                                response.getWriter().write("{\"error\":\"FORBIDDEN\",\"message\":\"You are not authorized to perform this action.\"}");
-                            } else {
-                                response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
-                                request.setAttribute("jakarta.servlet.error.status_code", 403);
-                                request.getRequestDispatcher("/error").forward(request, response);
-                            }
+                            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write("{\"error\":\"FORBIDDEN\",\"message\":\"You are not authorized to perform this action.\"}");
                         })
                 )
 

@@ -35,55 +35,68 @@ public class AuthMfaController {
     @PostMapping("/auth/validate-otp")
     @ResponseBody
     public ResponseEntity<?> validateMfa(@RequestParam String code,
-                                         Authentication auth,
                                          HttpServletRequest request,
                                          HttpServletResponse response) {
+        try {
 
-        String result = mfaProcessingService.processMfaValidation(code, auth, request, response);
+            org.springframework.security.core.Authentication auth =
+                    org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
 
-        if (result == null) {
-            log.error("MFA ERROR: Service returned a null status during validation.");
-            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", "Authentication failed."));
-        }
+            String result = mfaProcessingService.processMfaValidation(code, auth, request, response);
 
-        if (result.equals("REDIRECT_INDEX")) {
-            return ResponseEntity.ok(Map.of("status", "SUCCESS", "redirectUrl", "index.html"));
-        }
-
-        if (result.equals("STATUS_EXPIRED")) {
-            return ResponseEntity.ok(Map.of("status", "EXPIRED", "message", "The verification code has expired."));
-        }
-
-        if (result.equals("REDIRECT_LOGIN")) {
-            return ResponseEntity.badRequest().body(Map.of("status", "EXPIRED", "redirectUrl", "login.html?expired=true"));
-        }
-
-        if (result.startsWith("REDIRECT_BLOCKED_")) {
-            String secondsStr = result.replace("REDIRECT_BLOCKED_", "");
-            long lockDurationSeconds;
-            try {
-                lockDurationSeconds = Long.parseLong(secondsStr);
-            } catch (NumberFormatException e) {
-                lockDurationSeconds = 900;
+            if (result == null) {
+                log.error("MFA ERROR: Service returned a null status during validation.");
+                return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", "Authentication failed."));
             }
 
-            return ResponseEntity.status(HttpStatus.LOCKED).body(Map.of(
-                    "status", "BLOCKED",
-                    "lockDurationSeconds", lockDurationSeconds,
-                    "message", "Locked due to consecutive failed OTP attempts."
+            if (result.equals("REDIRECT_INDEX")) {
+                return ResponseEntity.ok(Map.of("status", "SUCCESS", "redirectUrl", "index.html"));
+            }
+
+            if (result.equals("STATUS_EXPIRED")) {
+                return ResponseEntity.ok(Map.of("status", "EXPIRED", "message", "The verification code has expired."));
+            }
+
+            if (result.equals("REDIRECT_LOGIN")) {
+                return ResponseEntity.badRequest().body(Map.of("status", "EXPIRED", "redirectUrl", "login.html?expired=true"));
+            }
+
+            if (result.startsWith("REDIRECT_BLOCKED_")) {
+                String secondsStr = result.replace("REDIRECT_BLOCKED_", "");
+                long lockDurationSeconds;
+                try {
+                    lockDurationSeconds = Long.parseLong(secondsStr);
+                } catch (NumberFormatException e) {
+                    lockDurationSeconds = 900;
+                }
+
+                return ResponseEntity.status(HttpStatus.LOCKED).body(Map.of(
+                        "status", "BLOCKED",
+                        "lockDurationSeconds", lockDurationSeconds,
+                        "message", "Locked due to consecutive failed OTP attempts."
+                ));
+            }
+
+            if (result.startsWith("REDIRECT_REMAINING_")) {
+                String remainingAttempts = result.replace("REDIRECT_REMAINING_", "");
+
+                return ResponseEntity.ok(Map.of(
+                        "status", "WRONG_CODE",
+                        "remainingAttempts", remainingAttempts
+                ));
+            }
+
+            log.warn("MFA WARNING: Unknown redirection token received: {}", safe(result));
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", "Authentication failed."));
+
+        } catch (Exception e) {
+            log.error("CRITICAL EXCEPTION IN MFA CONTROLLER: ", e);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "status", "ERROR",
+                    "message", "Internal server error: " + e.getMessage()
             ));
         }
-
-        if (result.startsWith("REDIRECT_REMAINING_")) {
-            String remainingAttempts = result.replace("REDIRECT_REMAINING_", "");
-            return ResponseEntity.badRequest().body(Map.of(
-                    "status", "WRONG_CODE",
-                    "remainingAttempts", remainingAttempts
-            ));
-        }
-
-        log.warn("MFA WARNING: Unknown redirection token received: {}", safe (result));
-        return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", "Authentication failed."));
     }
 
     // INDUCES MULTI FACTOR CODE REGENERATION COMMANDS ENFORCING DYNAMIC RATE LIMIT STATUS TOKENS ON FAILURE

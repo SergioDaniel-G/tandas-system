@@ -85,10 +85,9 @@ public class AdaptiveAuthService {
 
             ipService.registerAccessAttempt(userAccount, "INITIAL_LOGIN", "Step 1: Correct credentials", request);
 
-            String cryptoToken = userSecurityService.generateAndSendOtp(userAccount.getId(), email);
-
             var session = request.getSession(true);
-            session.setAttribute("OTP_CRYPTO_TOKEN", cryptoToken);
+
+            userSecurityService.generateAndSendOtp(userAccount.getId(), email, session);
 
             Authentication partialAuth = new UsernamePasswordAuthenticationToken(
                     authentication.getPrincipal(),

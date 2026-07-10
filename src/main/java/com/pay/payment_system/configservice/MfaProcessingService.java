@@ -52,17 +52,16 @@ public class MfaProcessingService {
         }
 
         HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("OTP_CRYPTO_TOKEN") == null) {
+        if (session == null || session.getAttribute("MFA_CRYPTO_TOKEN") == null) {
             log.warn("MFA SUSPICIOUS: Attempt with missing or expired session token for user: {}", safe (cleanEmail));
             return triggerLockoutIncrement(cleanEmail, session, "STATUS_EXPIRED");
         }
 
-        String cryptoToken = (String) session.getAttribute("OTP_CRYPTO_TOKEN");
         String sanitizedCode = (code != null) ? code.trim() : "";
 
         boolean isOtpValid = false;
         try {
-            isOtpValid = userSecurityService.validateOtp(userAccount, sanitizedCode, cryptoToken);
+            isOtpValid = userSecurityService.validateOtp(userAccount, sanitizedCode, session);
         } catch (RuntimeException e) {
 
             if (e.getMessage() != null && e.getMessage().contains("MFA_EXPIRED")) {
@@ -73,7 +72,7 @@ public class MfaProcessingService {
         }
 
         if (isOtpValid) {
-            session.removeAttribute("OTP_CRYPTO_TOKEN");
+            session.removeAttribute("MFA_CRYPTO_TOKEN");
             redisTemplate.delete(attemptsKey);
             if (cacheManager.getCache("users_security") != null) {
                 cacheManager.getCache("users_security").evict(username);
@@ -112,7 +111,7 @@ public class MfaProcessingService {
             }
 
             if (session != null) {
-                session.removeAttribute("OTP_CRYPTO_TOKEN");
+                session.removeAttribute("MFA_CRYPTO_TOKEN");
             }
 
             log.error("MFA SECURITY ESCALATION: Lockout level [{}] activated for {}. Blocked for {} minutes.",
@@ -145,7 +144,7 @@ public class MfaProcessingService {
             return "RESEND_BLOCKED";
         }
 
-        HttpSession session = request.getSession(false);
+        HttpSession session = request.getSession(true);
 
         Long currentAttempts = redisTemplate.opsForValue().increment(attemptsKey);
         if (currentAttempts != null && currentAttempts == 1) {
@@ -160,7 +159,7 @@ public class MfaProcessingService {
         UserAccount userAccount = userRepository.findByEmailCanonical(cleanEmail);
         if (userAccount == null || session == null) return "RESEND_UNAUTHORIZED";
 
-        String newCryptoToken = userSecurityService.generateAndSendOtp(userAccount.getId(), userAccount.getEmailCanonical());
+        String newCryptoToken = userSecurityService.generateAndSendOtp(userAccount.getId(), userAccount.getEmailCanonical(), session);
         if (newCryptoToken == null) return "RESEND_UNAUTHORIZED";
 
         session.setAttribute("OTP_CRYPTO_TOKEN", newCryptoToken);

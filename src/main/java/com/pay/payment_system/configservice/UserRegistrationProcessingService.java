@@ -79,6 +79,23 @@ public class UserRegistrationProcessingService {
             return response;
         }
 
+        UserAccount accountExistByPhone = userService.findByMobileNumber(userRegistrationDto.getMobileNumber());
+        if (accountExistByPhone != null) {
+            log.info("REGISTRATION: Mobile number '{}' already exists. Masking response.", safe(userRegistrationDto.getMobileNumber()));
+            passwordEncoder.encode(userRegistrationDto.getPassword());
+
+
+            String ownerEmail = accountExistByPhone.getEmailDispatch() != null ? accountExistByPhone.getEmailDispatch() : accountExistByPhone.getEmailCanonical();
+
+
+            sendPhoneAlreadyExistsAlert(ownerEmail, userRegistrationDto.getMobileNumber());
+
+            response.put("status", "success");
+            response.put("message", "User registered successfully!");
+            response.put("httpStatus", "CREATED");
+            return response;
+        }
+
         userService.save(userRegistrationDto, canonicalEmail);
         log.info("REGISTRATION SUCCESS: New user registered with email: {}", safe (userRegistrationDto.getEmail()));
 
@@ -113,6 +130,30 @@ public class UserRegistrationProcessingService {
                 log.info("REGISTRATION SECURITY: Alert email sent successfully to: {}", safe (email));
             } catch (Exception e) {
                 log.error("REGISTRATION SECURITY ERROR: Failed to send alert email: {}", safe (e.getMessage()));
+            }
+        }, mailTaskExecutor);
+    }
+
+    public void sendPhoneAlreadyExistsAlert(String email, String phoneNumber) {
+        CompletableFuture.runAsync(() -> {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(email);
+            String subject = messageSource.getMessage("registration.mail.phone.subject", null, "Security Alert: Phone Number In Use", LocaleContextHolder.getLocale());
+            message.setSubject(subject);
+
+            String content = "Hello,\n\n" +
+                    "We are sending you this email because someone attempted to create a new account using your phone number: " + phoneNumber + ".\n\n" +
+                    "Your account remains secure, and no changes have been made to your password or personal data.\n\n" +
+                    "Sincerely.\n\n" +
+                    "Litzia's Tanda,\n" +
+                    "The Support Team.";
+
+            message.setText(content);
+            try {
+                mailSender.send(message);
+                log.info("REGISTRATION SECURITY: Phone alert email sent successfully to: {}", safe(email));
+            } catch (Exception e) {
+                log.error("REGISTRATION SECURITY ERROR: Failed to send phone alert email: {}", safe(e.getMessage()));
             }
         }, mailTaskExecutor);
     }

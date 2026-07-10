@@ -105,7 +105,7 @@ public class PaymentController {
         }
     }
 
-    // COMMUTES TRANSACTION STATUS STATE MACHINERY FLIPING BETWEEN UNPAID AND COMPLETED AUDIT DOMAINS
+    // COMMUTES TRANSACTION STATUS STATE MACHINERY FLIPPING BETWEEN UNPAID AND COMPLETED AUDIT DOMAINS
 
     @PutMapping("/{id}/toggle")
     public ResponseEntity<Payment> toggle(@PathVariable Long id) {

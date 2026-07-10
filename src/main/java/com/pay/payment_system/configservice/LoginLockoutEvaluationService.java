@@ -76,7 +76,7 @@ public class LoginLockoutEvaluationService {
         return new LockoutResult(MAX_LOGIN_ATTEMPTS, true, dynamicDurationMinutes, lockReincidenceCount);
     }
 
-    // PROCESSES ADDITIONAL ATHENTICATION ATTEMPTS WHILE THE ACCOUNT STATUS IS CURRENTLY ACTIVE UNDER REDIS LOCKOUT
+    // PROCESSES ADDITIONAL AUTHENTICATION ATTEMPTS WHILE THE ACCOUNT STATUS IS CURRENTLY ACTIVE UNDER REDIS LOCKOUT
 
     private LockoutResult handleAttemptWhileLocked(String cleanEmail, String lockKey) {
         String lockStatus = redisTemplate.opsForValue().get(lockKey);

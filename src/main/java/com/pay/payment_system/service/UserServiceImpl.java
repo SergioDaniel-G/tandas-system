@@ -62,7 +62,10 @@ public class UserServiceImpl implements UserService {
                 .roles(Set.of(defaultRole))
                 .build();
 
-        UserSecurity security = UserSecurity.builder().user(user).build();
+        UserSecurity security = UserSecurity.builder()
+                .user(user)
+                .accountNonLocked(true)
+                .build();
         user.setSecurity(security);
 
         return userRepository.save(user);
@@ -160,5 +163,14 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public UserAccount findByEmail(String email) {
         return findByCanonicalEmail(EmailCanonicalizer.canonicalize(email));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserAccount findByMobileNumber(String mobileNumber) {
+        if (mobileNumber == null || mobileNumber.isBlank()) {
+            return null;
+        }
+        return userRepository.findByMobileNumber(mobileNumber.trim()).orElse(null);
     }
 }

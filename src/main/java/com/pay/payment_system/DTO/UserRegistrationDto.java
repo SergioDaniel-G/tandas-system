@@ -29,6 +29,7 @@ public class UserRegistrationDto {
             regexp = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$",
             message = "{validation.email.invalid}"
     )
+    @ValidDomain
     private String email;
 
     @NotBlank(message = "{user.password.required}")

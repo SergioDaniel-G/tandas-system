@@ -18,4 +18,6 @@ public interface UserService extends UserDetailsService {
 
         void updateLastLoginDate(String canonicalEmail, LocalDateTime loginDate);
 
+        UserAccount findByMobileNumber(String mobileNumber);
+
 }

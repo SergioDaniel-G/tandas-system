@@ -40,7 +40,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body("Malformed or invalid JSON request body.");
     }
 
-    // HANDLES PERSISTENCE INTERACTION CONFLICTS AND DATA INTEGRITY VIOLATIONS EMITING A STATUS CONFLICT RESPONSE
+    // HANDLES PERSISTENCE INTERACTION CONFLICTS AND DATA INTEGRITY VIOLATIONS EMITTING A STATUS CONFLICT RESPONSE
 
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<String> handleDataIntegrityViolationException(org.springframework.dao.DataIntegrityViolationException ex) {
@@ -76,5 +76,10 @@ public class GlobalExceptionHandler {
         }
 
         return ResponseEntity.badRequest().body(rootCause);
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<String> handleNoResourceFoundException(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Resource not found.");
     }
 }

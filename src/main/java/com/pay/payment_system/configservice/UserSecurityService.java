@@ -4,6 +4,7 @@ import static com.pay.payment_system.config.LogSanitizer.safe;
 import com.pay.payment_system.entity.UserAccount;
 import com.pay.payment_system.entity.UserSecurity;
 import com.pay.payment_system.repository.UserRepository;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -66,7 +67,7 @@ public class UserSecurityService {
 
     // GENERATES A CRYPTOGRAPHICALLY SECURE MULTI-FACTOR TOKEN DISPATCHES REQUISITE EMAIL AND COMPUTES TIME WINDOW SIGNATURES
 
-    public String generateAndSendOtp(Long userId, String email) {
+    public String generateAndSendOtp(Long userId, String email, HttpSession session) {
         int codeInt = 100000 + secureRandom.nextInt(900000);
         String otp = String.valueOf(codeInt);
 
@@ -75,13 +76,24 @@ public class UserSecurityService {
         mfaEmailService.sendOtpEmailAsync(email, otp);
 
         String hash = generateHash(userId, otp, expiryTime);
-        return hash + "." + expiryTime;
+        String tokenCompleto = hash + "." + expiryTime;
+
+        session.setAttribute("MFA_CRYPTO_TOKEN", tokenCompleto);
+
+        return tokenCompleto;
     }
 
     // EVALUATES CRYPTOGRAPHIC TIME BOUND SIGNATURES AND COMPARES USER OVER THE AIR INPUTS VIA CONSTANT TIME VERIFICATION
 
     @Transactional
-    public boolean validateOtp(UserAccount userAccount, String inputOtp, String cryptoToken) {
+    public boolean validateOtp(UserAccount userAccount, String inputOtp, HttpSession session) {
+        String cryptoToken = (String) session.getAttribute("MFA_CRYPTO_TOKEN");
+
+        if (cryptoToken == null || !cryptoToken.contains(".")) {
+            log.error("MFA CRITICAL: The cryptoToken was not sent by the frontend or is invalid.");
+            return false;
+        }
+
         try {
             String[] parts = cryptoToken.split("\\.");
             if (parts.length != 2) {
@@ -92,6 +104,7 @@ public class UserSecurityService {
             long expiryTime = Long.parseLong(parts[1]);
 
             if (Instant.now().toEpochMilli() > expiryTime) {
+                session.removeAttribute("MFA_CRYPTO_TOKEN");
                 throw new RuntimeException("MFA_EXPIRED: The OTP code has expired.");
             }
 
@@ -104,6 +117,7 @@ public class UserSecurityService {
 
             if (isHashValid) {
                 log.info("MFA SUCCESSFUL: OTP validated for user: {}", safe (userAccount.getEmailCanonical()));
+                session.removeAttribute("MFA_CRYPTO_TOKEN");
                 return true;
             } else {
                 log.warn("MFA FAILURE: Invalid OTP code entered for user: {}", safe (userAccount.getEmailCanonical()));

@@ -31,8 +31,6 @@ public class AccountLockoutListener {
 
         String email = event.getAuthentication().getName().trim().toLowerCase();
 
-        userSecurityService.handleSuccessfulLogin(email);
-
         UserAccount user = userSecurityService.handleSuccessfulLogin(email);
 
         HttpServletRequest request = getCurrentHttpRequest();

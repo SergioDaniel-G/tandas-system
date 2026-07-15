@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -71,7 +72,7 @@ public class UserSecurityService {
         int codeInt = 100000 + secureRandom.nextInt(900000);
         String otp = String.valueOf(codeInt);
 
-        long expiryTime = Instant.now().toEpochMilli() + (2 * 60 * 1000);
+        long expiryTime = Instant.now().toEpochMilli() + (5 * 60 * 1000);
 
         mfaEmailService.sendOtpEmailAsync(email, otp);
 
@@ -85,7 +86,7 @@ public class UserSecurityService {
 
     // EVALUATES CRYPTOGRAPHIC TIME BOUND SIGNATURES AND COMPARES USER OVER THE AIR INPUTS VIA CONSTANT TIME VERIFICATION
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = {RuntimeException.class})
     public boolean validateOtp(UserAccount userAccount, String inputOtp, HttpSession session) {
         String cryptoToken = (String) session.getAttribute("MFA_CRYPTO_TOKEN");
 

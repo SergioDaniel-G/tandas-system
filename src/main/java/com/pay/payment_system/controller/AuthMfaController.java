@@ -23,14 +23,24 @@ public class AuthMfaController {
 
     private final MfaProcessingService mfaProcessingService;
 
-    // REDIRECTS INBOUND VERIFICATION TRAFFIC TO THE STATICAL MULTI FACTOR HTML INTERFACE PAGE
-
     @GetMapping("/verify-code")
     public String showMfaPage() {
         return "redirect:/mfa-page.html";
     }
 
-    // INTERCEPTS USER OTP SUBMISSIONS DELEGATING BUSINESS VALIDATION AND MAPPING THE ENHANCED REST SECURED STATUS RESPONSES
+    //JUST FOR INEXISTENT TOKEN
+
+    /*@GetMapping("/test/remove-mfa-token")
+    @ResponseBody
+    public String removeMfaToken(HttpSession session) {
+
+        if (session != null) {
+            session.removeAttribute("MFA_CRYPTO_TOKEN");
+            return "MFA token removed";
+        }
+
+        return "No session";
+    }*/
 
     @PostMapping("/auth/validate-otp")
     @ResponseBody
@@ -38,9 +48,16 @@ public class AuthMfaController {
                                          HttpServletRequest request,
                                          HttpServletResponse response) {
         try {
-
             org.springframework.security.core.Authentication auth =
                     org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+
+            // DELETE FOR PRODUCTION
+            // log.info("MFA DEBUG AUTH: {}", auth);
+            // log.info("MFA DEBUG SESSION ID: {}", request.getSession(false) != null
+            //        ? request.getSession(false).getId()
+            //        : "NO SESSION");
+
+            //log.info("MFA DEBUG CODE RECEIVED: {}", safe(code));
 
             String result = mfaProcessingService.processMfaValidation(code, auth, request, response);
 
@@ -59,6 +76,31 @@ public class AuthMfaController {
 
             if (result.equals("REDIRECT_LOGIN")) {
                 return ResponseEntity.badRequest().body(Map.of("status", "EXPIRED", "redirectUrl", "login.html?expired=true"));
+            }
+
+            if (result.startsWith("REDIRECT_DELAYED_")) {
+                String secondsStr = result.replace("REDIRECT_DELAYED_", "");
+                long delaySeconds;
+                try {
+                    delaySeconds = Long.parseLong(secondsStr);
+                } catch (NumberFormatException e) {
+                    delaySeconds = 5;
+                }
+
+                String message;
+
+                if (delaySeconds < 60) {
+                    message = "Too many attempts. Please wait " + delaySeconds + " seconds.";
+                } else {
+                    long minutes = delaySeconds / 60;
+                    message = "Too many attempts. Please wait " + minutes + " minutes.";
+                }
+
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
+                        "status", "DELAYED",
+                        "delaySeconds", delaySeconds,
+                        "message", message
+                ));
             }
 
             if (result.startsWith("REDIRECT_BLOCKED_")) {
@@ -91,15 +133,12 @@ public class AuthMfaController {
 
         } catch (Exception e) {
             log.error("CRITICAL EXCEPTION IN MFA CONTROLLER: ", e);
-
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "status", "ERROR",
                     "message", "Internal server error: " + e.getMessage()
             ));
         }
     }
-
-    // INDUCES MULTI FACTOR CODE REGENERATION COMMANDS ENFORCING DYNAMIC RATE LIMIT STATUS TOKENS ON FAILURE
 
     @PostMapping("/auth/mfa/resend")
     @ResponseBody
@@ -109,18 +148,52 @@ public class AuthMfaController {
         try {
             String result = mfaProcessingService.processMfaResend(auth, request, response);
 
-            return switch (result) {
-                case "RESEND_SUCCESS" ->
-                        ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Fresh code dispatched."));
+            if (result.equals("RESEND_SUCCESS")) {
+                return ResponseEntity.ok(Map.of(
+                        "status", "SUCCESS",
+                        "message", "Fresh code dispatched.",
+                        "nextCooldownSeconds", 60,
+                        "otpExpiresInSeconds", 300
+                ));
+            }
 
-                case "RESEND_BLOCKED" ->
-                        ResponseEntity.status(HttpStatus.LOCKED).body(Map.of("status", "BLOCKED", "message", "Locked."));
+            if (result.equals("RESEND_BLOCKED")) {
+                return ResponseEntity.status(HttpStatus.LOCKED).body(Map.of(
+                        "status", "BLOCKED",
+                        "message", "Too many resend requests. Account locked for 15 minutes.",
+                        "lockDurationSeconds", 900
+                ));
+            }
 
-                default ->
-                        ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("status", "UNAUTHORIZED", "message", "Expired session."));
-            };
+            if (result.equals("RESEND_DAILY_BLOCKED")) {
+                return ResponseEntity.status(HttpStatus.LOCKED).body(Map.of(
+                        "status", "BLOCKED",
+                        "message", "Daily resend limit exceeded. Account locked for 24 hours.",
+                        "lockDurationSeconds", 86400
+                ));
+            }
+
+            // CAPTURES THE PROGRESSIVE DELAY CALCULATED BY REDIS IN THE SERVICE
+
+            if (result.startsWith("RESEND_DELAYED_")) {
+                String secondsStr = result.replace("RESEND_DELAYED_", "");
+                long delaySeconds;
+                try {
+                    delaySeconds = Long.parseLong(secondsStr);
+                } catch (NumberFormatException e) {
+                    delaySeconds = 60;
+                }
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
+                        "status", "DELAYED",
+                        "delaySeconds", delaySeconds,
+                        "message", "Please wait before requesting a new code."
+                ));
+            }
+
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("status", "UNAUTHORIZED", "message", "Expired session."));
+
         } catch (Exception e) {
-            log.error("MFA ERROR: Internal error during resend process.");
+            log.error("MFA ERROR: Internal error during resend process.", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("status", "ERROR", "message", "Internal error."));
         }
     }

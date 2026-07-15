@@ -80,7 +80,7 @@ public class SecurityConfiguration {
 
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/login","/login.html","/api/users/register","/forgotPassword","/changePassword","/auth/validate-otp","/api/**"))
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/login","/login.html","/api/users/register","/forgotPassword","/changePassword","/auth/validate-otp","/auth/mfa/resend","api/**"))
                 .authenticationManager(authManager)
                 .authorizeHttpRequests(authorize -> authorize
 
@@ -102,6 +102,7 @@ public class SecurityConfiguration {
 
                         .requestMatchers("/register").permitAll()
                         .requestMatchers("/auth/validate-otp").permitAll()
+                        .requestMatchers("/auth/mfa/resend").permitAll()
                         .requestMatchers("/verify-code", "/mfa-page.html").hasRole("PRE_VERIFIED")
                         .anyRequest().authenticated()
                 )

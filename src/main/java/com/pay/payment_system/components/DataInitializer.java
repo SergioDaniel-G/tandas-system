@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 /* DATA SEEDING COMPONENT TO INITIALIZE THE DATABASE ON STARTUP
  * THIS CLASS ENSURES THAT A DEFAULT ADMINISTRATIVE USER EXISTS,

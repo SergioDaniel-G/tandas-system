@@ -1,6 +1,7 @@
 package com.pay.payment_system.configservice;
 
 import static com.pay.payment_system.config.LogSanitizer.safe;
+import static com.pay.payment_system.config.LogSanitizer.maskEmail;
 import com.pay.payment_system.entity.UserAccount;
 import com.pay.payment_system.entity.UserSecurity;
 import com.pay.payment_system.repository.UserRepository;
@@ -59,6 +60,7 @@ public class LoginLockoutEvaluationService {
 
     private LockoutResult triggerLockout(String cleanEmail, String lockKey, String attemptsKey) {
         int lockReincidenceCount = incrementAndGetTemporaryLockCount(cleanEmail);
+        log.warn("DEBUG LOCKOUT COUNT: {}", lockReincidenceCount);
 
         redisTemplate.delete(attemptsKey);
 
@@ -71,6 +73,8 @@ public class LoginLockoutEvaluationService {
         }
 
         long dynamicDurationMinutes = calculateDynamicLockoutTime(lockReincidenceCount);
+        log.warn("DEBUG LOCKOUT TIME: {} minutes", dynamicDurationMinutes);
+
         redisTemplate.opsForValue().set(lockKey, "LOCKED", dynamicDurationMinutes, TimeUnit.MINUTES);
 
         return new LockoutResult(MAX_LOGIN_ATTEMPTS, true, dynamicDurationMinutes, lockReincidenceCount);
@@ -101,7 +105,7 @@ public class LoginLockoutEvaluationService {
                 UserSecurity security = user.getSecurity();
                 security.setAccountNonLocked(false);
                 userRepository.save(user);
-                log.error("CRITICAL SECURITY HARDENING: User {} permanently locked in MySQL.",safe (canonicalEmail));
+                log.error("CRITICAL SECURITY HARDENING: User {} permanently locked in MySQL.",safe(maskEmail(canonicalEmail)));
             }
         } catch (Exception e) {
             log.error("CRITICAL ERROR: Failed to execute permanent DB lock. Message: {}", safe(e.getMessage()));

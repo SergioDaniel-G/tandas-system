@@ -100,20 +100,26 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 {"status":"SUCCESS","redirect":"/index"}
                 """);
         } else {
-            request.changeSessionId();
-
             Authentication preVerifiedAuth = new UsernamePasswordAuthenticationToken(
                     authentication.getPrincipal(),
-                    authentication.getCredentials(),
-                    List.of(new SimpleGrantedAuthority("ROLE_PRE_VERIFIED"))
-            );
+                    null,
+                    List.of(
+                            new SimpleGrantedAuthority("PRE_VERIFIED"),
+                            new SimpleGrantedAuthority("ROLE_PRE_VERIFIED")
+                            )
+                    );
+
+            SecurityContextHolder.clearContext();
 
             SecurityContextHolder.getContext().setAuthentication(preVerifiedAuth);
             securityContextRepository.saveContext(SecurityContextHolder.getContext(), request, response);
 
-            log.info("MFA required for user {}. Role temporarily downgraded to ROLE_PRE_VERIFIED.", safe (email));
+            log.info("MFA required for user {}. Authorities temporarily downgraded: {}",
+                    safe(email),
+                    preVerifiedAuth.getAuthorities());
 
             clearAuthenticationAttributes(request);
+
             response.setStatus(HttpServletResponse.SC_OK);
             response.getWriter().print("""
                 {"status":"MFA_REQUIRED","redirect":"/verify-code"}

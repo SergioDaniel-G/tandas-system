@@ -59,6 +59,9 @@ public class AuthMfaController {
 
             //log.info("MFA DEBUG CODE RECEIVED: {}", safe(code));
 
+            log.info("MFA AUTH DEBUG USER: {}", auth != null ? auth.getName() : "NULL");
+            log.info("MFA AUTH DEBUG AUTHORITIES: {}", auth != null ? auth.getAuthorities() : "NULL");
+
             String result = mfaProcessingService.processMfaValidation(code, auth, request, response);
 
             if (result == null) {
@@ -67,6 +70,7 @@ public class AuthMfaController {
             }
 
             if (result.equals("REDIRECT_INDEX")) {
+                request.changeSessionId();
                 return ResponseEntity.ok(Map.of("status", "SUCCESS", "redirectUrl", "index.html"));
             }
 

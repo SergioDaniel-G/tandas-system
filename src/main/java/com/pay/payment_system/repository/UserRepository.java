@@ -2,7 +2,6 @@ package com.pay.payment_system.repository;
 
 import com.pay.payment_system.entity.UserAccount;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -17,12 +16,13 @@ public interface UserRepository extends JpaRepository<UserAccount, Long> {
 
     // CACHES AND RETRIEVES A USER BY CANONICAL EMAIL WITH EAGER LOADING OF ROLES AND SECURITY DATA
 
-    @Cacheable(value = "users_security", key = "#emailCanonical")
+    //@Cacheable(value = "users_security", key = "#emailCanonical")
     @Query("SELECT u FROM UserAccount u " +
+            "JOIN FETCH u.security " +
             "LEFT JOIN FETCH u.roles " +
-            "LEFT JOIN FETCH u.security " +
             "WHERE u.emailCanonical = :emailCanonical")
-    Optional<UserAccount> findByEmailCanonicalWithSecurityAndRoles(@Param("emailCanonical") String emailCanonical);
+    Optional<UserAccount> findByEmailCanonicalWithSecurityAndRoles(
+            @Param("emailCanonical") String emailCanonical);
 
     UserAccount findByEmailCanonical(String emailCanonical);
 

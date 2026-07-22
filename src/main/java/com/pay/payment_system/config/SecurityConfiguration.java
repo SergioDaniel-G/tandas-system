@@ -19,6 +19,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -80,7 +81,11 @@ public class SecurityConfiguration {
 
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/login","/login.html","/api/users/register","/forgotPassword","/changePassword","/auth/validate-otp","/auth/mfa/resend","api/**"))
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(
+                                CookieCsrfTokenRepository.withHttpOnlyFalse()
+                        )
+                )
                 .authenticationManager(authManager)
                 .authorizeHttpRequests(authorize -> authorize
 
@@ -89,7 +94,7 @@ public class SecurityConfiguration {
                         .requestMatchers("/login", "/login.html", "/register", "/register.html", "/error").permitAll()
                         .requestMatchers("/forgot_password.html", "/reset_password.html").permitAll()
                         .requestMatchers("/api/users/register", "/api/users/recaptcha-key", "/api/register", "/api/config/**").permitAll()
-                       .requestMatchers("/api/cron/**").permitAll()
+                        .requestMatchers("/api/cron/**").permitAll()
                         .requestMatchers("/loadForgotPassword", "/loadForgotPassword/**", "/forgotPassword").permitAll()
                         .requestMatchers("/loadResetPassword/**", "/changePassword/**").permitAll()
 
@@ -100,10 +105,11 @@ public class SecurityConfiguration {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
 
+                        .requestMatchers("/api/csrf").permitAll()
                         .requestMatchers("/register").permitAll()
-                        .requestMatchers("/auth/validate-otp").permitAll()
-                        .requestMatchers("/auth/mfa/resend").permitAll()
-                        .requestMatchers("/verify-code", "/mfa-page.html").hasRole("PRE_VERIFIED")
+                        .requestMatchers("/auth/validate-otp").hasAuthority("PRE_VERIFIED")
+                        .requestMatchers("/auth/mfa/resend").hasAuthority("PRE_VERIFIED")
+                        .requestMatchers("/verify-code", "/mfa-page.html").hasAuthority("PRE_VERIFIED")
                         .anyRequest().authenticated()
                 )
 
@@ -156,7 +162,7 @@ public class SecurityConfiguration {
                 // ENFORCES CONCURRENT SESSION MITIGATION LIMITS AND APPLIES SESSION FIXATION PROTECTION POLICIES
 
                 .sessionManagement(session -> session
-                        .sessionFixation().migrateSession()
+                        .sessionFixation().newSession()
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                         .maximumSessions(1)
                         .maxSessionsPreventsLogin(false)

@@ -1,6 +1,7 @@
 package com.pay.payment_system.components;
 
 import static com.pay.payment_system.config.LogSanitizer.safe;
+import static com.pay.payment_system.config.LogSanitizer.maskEmail;
 import com.pay.payment_system.configservice.IpService;
 import com.pay.payment_system.configservice.UserSecurityService;
 import com.pay.payment_system.entity.UserAccount;
@@ -36,7 +37,7 @@ public class AccountLockoutListener {
         HttpServletRequest request = getCurrentHttpRequest();
         if (request != null) {
             ipService.registerAccessAttempt(user, "INITIAL_LOGIN", "Login: Correct credentials", request);
-            log.info("AUDIT LOG: Initial login access registered for user: {}", safe(user.getEmailCanonical()));
+            log.info("AUDIT LOG: Initial login access registered for user: {}", safe(maskEmail(user.getEmailCanonical())));
         }
     }
 
@@ -47,7 +48,7 @@ public class AccountLockoutListener {
     public void onFailure(AbstractAuthenticationFailureEvent event) {
         String email = event.getAuthentication().getName().trim().toLowerCase();
 
-        log.warn("FAILURE EVENT DETECTED: Propagating to CustomLoginFailureHandler for core processing: {}",safe (email));
+        log.warn("FAILURE EVENT DETECTED: Propagating to CustomLoginFailureHandler for core processing: {}",safe(maskEmail(email)));
     }
 
     // GETS THE CURRENT HTTP REQUEST TO EXTRACT THE IP AND BROWSER DATA

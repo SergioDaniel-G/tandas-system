@@ -1,6 +1,7 @@
 package com.pay.payment_system.configservice;
 
 import static com.pay.payment_system.config.LogSanitizer.safe;
+import static com.pay.payment_system.config.LogSanitizer.maskEmail;
 import com.pay.payment_system.components.RequestDeviceParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,20 +21,20 @@ public class AuditLogService {
         String riskLevel = (attempts >= 3) ? "MEDIUM" : "LOW";
 
         log.warn("SECURITY_AUDIT | Email: {} | IP: {} | Status: FAILED_PASSWORD | Risk: {} | Device: {} | Reason: INCORRECT PASSWORD. ATTEMPT #{} | UA: {}",
-                safe(email), safe (ip), riskLevel, device, attempts, (agent != null ? safe (agent) : "UNKNOWN"));
+                safe(maskEmail(email)), safe (ip), riskLevel, safe(device), attempts, (agent != null ? safe (agent) : "UNKNOWN"));
     }
 
     // REGISTERS GENERAL SYSTEM SEGREGATED SECURITY OR AUTHENTICATION PIPELINE FAILURES
 
     public void logFailure(String email, String ip, String description) {
         log.warn("SECURITY_AUDIT | Email: {} | IP: {} | Status: FAILED | Reason: {}",
-                safe (email), safe (ip), safe (description));
+                safe(maskEmail(email)), safe (ip), safe (description));
     }
 
     // EMITS HIGH-PRIORITY ALERTS AND LOG ENTRIES FOR CRITICAL AND POTENTIALLY MALICIOUS OPERATIONS
 
     public void logCritical(String email, String ip, String action, String description) {
         log.error("CRITICAL_SECURITY_EVENT | Email: {} | IP: {} | Action: {} | Description: {}",
-                safe (email), safe (ip),  safe(action), safe (description));
+                safe(maskEmail(email)), safe (ip),  safe(action), safe (description));
     }
 }

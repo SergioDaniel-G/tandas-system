@@ -52,12 +52,14 @@ public class UserServiceImpl implements UserService {
         Role defaultRole = roleRepository.findByName("ROLE_USER")
                 .orElseThrow(() -> new IllegalStateException("ROLE_USER could not be found in the database."));
 
+        String encodedPassword = passwordEncoder.encode(dto.getPassword());
+
         UserAccount user = UserAccount.builder()
                 .name(dto.getName())
                 .lastname(dto.getLastname())
                 .emailCanonical(canonicalEmail)
                 .emailDispatch(dto.getEmail())
-                .password(passwordEncoder.encode(dto.getPassword()))
+                .password(encodedPassword)
                 .mobileNumber(dto.getMobileNumber())
                 .roles(Set.of(defaultRole))
                 .build();

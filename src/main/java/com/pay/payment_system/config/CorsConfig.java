@@ -26,28 +26,27 @@ public class CorsConfig {
         if (isDev) {
             configuration.setAllowedOrigins(List.of(
                     "http://localhost:5500",
-                    "http://127.0.0.1:5500",
-                    "http://localhost:8080",
-                    "http://127.0.0.1:8080"
+                    "http://127.0.0.1:5500"
             ));
         } else {
 
             configuration.setAllowedOrigins(List.of("https://tu-frontend-en-gcp.com"));
         }
 
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
 
         configuration.setAllowedHeaders(List.of(
                 "Authorization",
                 "Content-Type",
                 "X-Requested-With",
                 "Cache-Control",
-                "g-recaptcha-response"
+                "g-recaptcha-response",
+                "X-XSRF-TOKEN"
         ));
 
         // EXPOSES AUTHENTICATION HEADERS AND ENABLES COOKIE CREDENTIALS TRANSMISSION WITH PREFLIGHT CACHING
 
-        configuration.setExposedHeaders(List.of("Authorization", "Set-Cookie"));
+        configuration.setExposedHeaders(List.of("Authorization", "X-XSRF-TOKEN"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

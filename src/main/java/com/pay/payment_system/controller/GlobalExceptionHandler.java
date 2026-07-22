@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -13,6 +14,21 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<String> handleHttpRequestMethodNotSupportedException(
+            HttpRequestMethodNotSupportedException ex) {
+
+        log.warn("HTTP METHOD NOT ALLOWED: Method {} is not supported for endpoint {}",
+                safe(ex.getMethod()),
+                safe(ex.getSupportedHttpMethods() != null
+                        ? ex.getSupportedHttpMethods().toString()
+                        : "none"));
+
+        return ResponseEntity
+                .status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body("HTTP method not allowed.");
+    }
 
     // INTERCEPTS METHOD ARGUMENT VALIDATION EXCEPTIONS COMPILES FIELD ERRORS AND LOGS AUDIT WARNS
 

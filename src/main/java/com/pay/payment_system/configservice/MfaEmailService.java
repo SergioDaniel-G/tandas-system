@@ -1,6 +1,7 @@
 package com.pay.payment_system.configservice;
 
 import static com.pay.payment_system.config.LogSanitizer.safe;
+import static com.pay.payment_system.config.LogSanitizer.maskEmail;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.SimpleMailMessage;
@@ -23,7 +24,7 @@ public class MfaEmailService {
 
         if (log.isDebugEnabled()) {
             log.debug("---------- [DEBUG MFA CHALLENGE] ----------");
-            log.debug("Target Email: {} | Generated Code: [REDACTED]", safe (email));
+            log.debug("Target Email: {} | Generated Code: [REDACTED]", safe(maskEmail(email)));
             log.debug("-------------------------------------------");
         }
 
@@ -34,10 +35,10 @@ public class MfaEmailService {
             message.setText("Your access code is: " + code + "\n\nThis code is for one time use only.");
 
             mailSender.send(message);
-            log.info("MFA EMAIL SUCCESS: Security token successfully dispatched to {}",safe (email));
+            log.info("MFA EMAIL SUCCESS: Security token successfully dispatched to {}",safe(maskEmail(email)));
 
         } catch (Exception e) {
-            log.error("CRITICAL SECURITY ERROR: Failed to send MFA email to [{}]. Reason: {}", safe (email), safe (e.getMessage()));
+            log.error("CRITICAL SECURITY ERROR: Failed to send MFA email to [{}]. Reason: {}", safe(maskEmail(email)), safe (e.getMessage()));
         }
     }
 }
